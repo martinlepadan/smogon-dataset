@@ -1,0 +1,30 @@
+# Monthly update of the dataset
+name: Monthly update
+
+on:
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Mois à traiter (YYYY-MM). Vide = dernier mois publié."
+        required: false
+
+concurrency:
+  group: monthly-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --no-dev
+      # TODO : détecter le nouveau mois -> télécharger -> parser -> valider -> publier Lite + Complete.
+      # Échec : toute erreur de validation fait échouer le job, rien n'est publié.
+      - run: uv run smogon-dataset version
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
