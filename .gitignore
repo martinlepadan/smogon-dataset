@@ -233,3 +233,5 @@ data/**
 # Kaggle IDs
 kaggle.json
 .editorconfig
+
+.vscode/

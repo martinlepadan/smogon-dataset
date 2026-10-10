@@ -19,7 +19,8 @@ SPECIAL_MONTHS = frozenset(
 )
 
 # Subfolders of a month
-SECTIONS = ("", "chaos", "leads", "metagame", "monotype")
+# moveset/ is not parsed: it holds the same data as chaos/, as text.
+SECTIONS = ("", "chaos", "leads", "metagame", "mega", "monotype")
 
 # Network settings
 USER_AGENT = "smogon-dataset/0.1 (+https://github.com/martinlepadan/smogon-dataset; contact: martin.lepadanc@gmail.com)"
