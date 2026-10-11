@@ -12,6 +12,7 @@ dependencies = [
     "pandera[polars]>=0.34.1",
     "polars>=2.0.0",
     "pyarrow>=26.0.0",
+    "rich>=15.0.0",
     "tenacity>=9.2.1",
     "typer>=0.27.3",
 ]
@@ -69,5 +70,5 @@ strict = true
 files = ["src"]
 
 [[tool.mypy.overrides]]
-module = ["kaggle.*"]
+module = ["kaggle.*", "pyarrow.*"]
 ignore_missing_imports = true

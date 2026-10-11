@@ -2260,6 +2260,7 @@ dependencies = [
     { name = "pandera", extra = ["polars"] },
     { name = "polars" },
     { name = "pyarrow" },
+    { name = "rich" },
     { name = "tenacity" },
     { name = "typer" },
 ]
@@ -2284,6 +2285,7 @@ requires-dist = [
     { name = "pandera", extras = ["polars"], specifier = ">=0.34.1" },
     { name = "polars", specifier = ">=2.0.0" },
     { name = "pyarrow", specifier = ">=26.0.0" },
+    { name = "rich", specifier = ">=15.0.0" },
     { name = "tenacity", specifier = ">=9.2.1" },
     { name = "typer", specifier = ">=0.27.3" },
 ]

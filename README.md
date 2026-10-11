@@ -36,12 +36,15 @@ uv run mypy
 src/smogon_dataset/
   config.py        # source URL, rate limiting, cutoffs, paths
   cli.py           # `smogon-dataset` entry point
+  fetch.py         # polite HTTP client with an on-disk cache
+  inventory.py     # crawl of the archive listings
   parsers/         # one parser per source file type
+scripts/           # one-off tools (fixture download)
 tests/
-  fixtures/<year>  # real sample files from each era of the archive
+  fixtures/<month> # real sample files from each era, laid out like the server
 data/              # not versioned
-  raw/             # local mirror of smogon.com/stats
-  interim/         # parser outputs
+  raw/             # cache of smogon.com/stats, files kept gzipped as served
+  interim/         # canonical tables, one folder per month
   complete/        # Complete dataset
   lite/            # Lite dataset
 notebooks/         # exploration and the Kaggle starter notebook
