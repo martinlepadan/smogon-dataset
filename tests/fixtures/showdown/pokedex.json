@@ -1,0 +1,624 @@
+{
+ "bulbasaur": {
+  "num": 1,
+  "name": "Bulbasaur",
+  "types": [
+   "Grass",
+   "Poison"
+  ],
+  "genderRatio": {
+   "M": 0.875,
+   "F": 0.125
+  },
+  "baseStats": {
+   "hp": 45,
+   "atk": 49,
+   "def": 49,
+   "spa": 65,
+   "spd": 65,
+   "spe": 45
+  },
+  "abilities": {
+   "0": "Overgrow",
+   "H": "Chlorophyll"
+  },
+  "heightm": 0.7,
+  "weightkg": 6.9,
+  "color": "Green",
+  "evos": [
+   "Ivysaur"
+  ],
+  "eggGroups": [
+   "Monster",
+   "Grass"
+  ],
+  "tier": "LC"
+ },
+ "charizard": {
+  "num": 6,
+  "name": "Charizard",
+  "types": [
+   "Fire",
+   "Flying"
+  ],
+  "genderRatio": {
+   "M": 0.875,
+   "F": 0.125
+  },
+  "baseStats": {
+   "hp": 78,
+   "atk": 84,
+   "def": 78,
+   "spa": 109,
+   "spd": 85,
+   "spe": 100
+  },
+  "abilities": {
+   "0": "Blaze",
+   "H": "Solar Power"
+  },
+  "heightm": 1.7,
+  "weightkg": 90.5,
+  "color": "Red",
+  "prevo": "Charmeleon",
+  "evoLevel": 36,
+  "eggGroups": [
+   "Monster",
+   "Dragon"
+  ],
+  "otherFormes": [
+   "Charizard-Mega-X",
+   "Charizard-Mega-Y"
+  ],
+  "formeOrder": [
+   "Charizard",
+   "Charizard-Mega-X",
+   "Charizard-Mega-Y"
+  ],
+  "canGigantamax": "G-Max Wildfire",
+  "tier": "ZUBL"
+ },
+ "charizardmegax": {
+  "num": 6,
+  "name": "Charizard-Mega-X",
+  "baseSpecies": "Charizard",
+  "forme": "Mega-X",
+  "types": [
+   "Fire",
+   "Dragon"
+  ],
+  "genderRatio": {
+   "M": 0.875,
+   "F": 0.125
+  },
+  "baseStats": {
+   "hp": 78,
+   "atk": 130,
+   "def": 111,
+   "spa": 130,
+   "spd": 85,
+   "spe": 100
+  },
+  "abilities": {
+   "0": "Tough Claws"
+  },
+  "heightm": 1.7,
+  "weightkg": 110.5,
+  "color": "Black",
+  "eggGroups": [
+   "Monster",
+   "Dragon"
+  ],
+  "requiredItem": "Charizardite X",
+  "tier": "Illegal",
+  "isNonstandard": "Past"
+ },
+ "raichualola": {
+  "num": 26,
+  "name": "Raichu-Alola",
+  "baseSpecies": "Raichu",
+  "forme": "Alola",
+  "types": [
+   "Electric",
+   "Psychic"
+  ],
+  "baseStats": {
+   "hp": 60,
+   "atk": 85,
+   "def": 50,
+   "spa": 95,
+   "spd": 85,
+   "spe": 110
+  },
+  "abilities": {
+   "0": "Surge Surfer"
+  },
+  "heightm": 0.7,
+  "weightkg": 21,
+  "color": "Brown",
+  "prevo": "Pikachu",
+  "evoType": "useItem",
+  "evoItem": "Thunder Stone",
+  "evoRegion": "Alola",
+  "eggGroups": [
+   "Field",
+   "Fairy"
+  ],
+  "tier": "ZU"
+ },
+ "gastrodon": {
+  "num": 423,
+  "name": "Gastrodon",
+  "baseForme": "West",
+  "types": [
+   "Water",
+   "Ground"
+  ],
+  "baseStats": {
+   "hp": 111,
+   "atk": 83,
+   "def": 68,
+   "spa": 92,
+   "spd": 82,
+   "spe": 39
+  },
+  "abilities": {
+   "0": "Sticky Hold",
+   "1": "Storm Drain",
+   "H": "Sand Force"
+  },
+  "heightm": 0.9,
+  "weightkg": 29.9,
+  "color": "Purple",
+  "prevo": "Shellos",
+  "evoLevel": 30,
+  "eggGroups": [
+   "Water 1",
+   "Amorphous"
+  ],
+  "cosmeticFormes": [
+   "Gastrodon-East"
+  ],
+  "formeOrder": [
+   "Gastrodon",
+   "Gastrodon-East"
+  ],
+  "tier": "RU"
+ },
+ "gastrodoneast": {
+  "isCosmeticForme": true,
+  "name": "Gastrodon-East",
+  "baseSpecies": "Gastrodon",
+  "forme": "East",
+  "color": "Blue"
+ },
+ "greattusk": {
+  "num": 984,
+  "name": "Great Tusk",
+  "types": [
+   "Ground",
+   "Fighting"
+  ],
+  "gender": "N",
+  "baseStats": {
+   "hp": 115,
+   "atk": 131,
+   "def": 131,
+   "spa": 53,
+   "spd": 53,
+   "spe": 87
+  },
+  "abilities": {
+   "0": "Protosynthesis"
+  },
+  "heightm": 2.2,
+  "weightkg": 320,
+  "color": "Purple",
+  "tags": [
+   "Paradox"
+  ],
+  "eggGroups": [
+   "Undiscovered"
+  ],
+  "tier": "OU"
+ },
+ "syclant": {
+  "num": -2,
+  "name": "Syclant",
+  "types": [
+   "Ice",
+   "Bug"
+  ],
+  "baseStats": {
+   "hp": 70,
+   "atk": 116,
+   "def": 70,
+   "spa": 114,
+   "spd": 64,
+   "spe": 121
+  },
+  "abilities": {
+   "0": "Compound Eyes",
+   "1": "Mountaineer",
+   "H": "Ice Body"
+  },
+  "heightm": 1.7,
+  "weightkg": 52,
+  "color": "Blue",
+  "prevo": "Syclar",
+  "evoLevel": 30,
+  "eggGroups": [
+   "Bug"
+  ],
+  "gen": 4,
+  "tier": "CAP",
+  "isNonstandard": "CAP"
+ },
+ "missingno": {
+  "num": 0,
+  "name": "MissingNo.",
+  "types": [
+   "Bird",
+   "Normal"
+  ],
+  "baseStats": {
+   "hp": 33,
+   "atk": 136,
+   "def": 0,
+   "spa": 6,
+   "spd": 6,
+   "spe": 29
+  },
+  "abilities": {
+   "0": ""
+  },
+  "heightm": 3,
+  "weightkg": 1590.8,
+  "color": "Gray",
+  "eggGroups": [
+   "Undiscovered"
+  ],
+  "tier": "Illegal",
+  "isNonstandard": "Custom"
+ },
+ "flabebe": {
+  "num": 669,
+  "name": "Flabébé",
+  "baseForme": "Red",
+  "types": [
+   "Fairy"
+  ],
+  "gender": "F",
+  "baseStats": {
+   "hp": 44,
+   "atk": 38,
+   "def": 39,
+   "spa": 61,
+   "spd": 79,
+   "spe": 42
+  },
+  "abilities": {
+   "0": "Flower Veil",
+   "H": "Symbiosis"
+  },
+  "heightm": 0.1,
+  "weightkg": 0.1,
+  "color": "White",
+  "evos": [
+   "Floette"
+  ],
+  "eggGroups": [
+   "Fairy"
+  ],
+  "cosmeticFormes": [
+   "Flabébé-Blue",
+   "Flabébé-Orange",
+   "Flabébé-White",
+   "Flabébé-Yellow"
+  ],
+  "formeOrder": [
+   "Flabébé",
+   "Flabébé-Yellow",
+   "Flabébé-Orange",
+   "Flabébé-Blue",
+   "Flabébé-White"
+  ],
+  "tier": "LC"
+ },
+ "taurospaldeablaze": {
+  "num": 128,
+  "name": "Tauros-Paldea-Blaze",
+  "baseSpecies": "Tauros",
+  "forme": "Paldea-Blaze",
+  "types": [
+   "Fighting",
+   "Fire"
+  ],
+  "gender": "M",
+  "baseStats": {
+   "hp": 75,
+   "atk": 110,
+   "def": 105,
+   "spa": 30,
+   "spd": 70,
+   "spe": 100
+  },
+  "abilities": {
+   "0": "Intimidate",
+   "1": "Anger Point",
+   "H": "Cud Chew"
+  },
+  "heightm": 1.4,
+  "weightkg": 85,
+  "color": "Black",
+  "eggGroups": [
+   "Field"
+  ],
+  "tier": "PU"
+ },
+ "groudonprimal": {
+  "num": 383,
+  "name": "Groudon-Primal",
+  "baseSpecies": "Groudon",
+  "forme": "Primal",
+  "types": [
+   "Ground",
+   "Fire"
+  ],
+  "gender": "N",
+  "baseStats": {
+   "hp": 100,
+   "atk": 180,
+   "def": 160,
+   "spa": 150,
+   "spd": 90,
+   "spe": 90
+  },
+  "abilities": {
+   "0": "Desolate Land"
+  },
+  "heightm": 5,
+  "weightkg": 999.7,
+  "color": "Red",
+  "eggGroups": [
+   "Undiscovered"
+  ],
+  "requiredItem": "Red Orb",
+  "tier": "Illegal",
+  "isNonstandard": "Past"
+ },
+ "falinksmega": {
+  "num": 870,
+  "name": "Falinks-Mega",
+  "baseSpecies": "Falinks",
+  "forme": "Mega",
+  "types": [
+   "Fighting"
+  ],
+  "gender": "N",
+  "baseStats": {
+   "hp": 65,
+   "atk": 135,
+   "def": 135,
+   "spa": 70,
+   "spd": 65,
+   "spe": 100
+  },
+  "abilities": {
+   "0": "Defiant"
+  },
+  "heightm": 1.6,
+  "weightkg": 99,
+  "color": "Yellow",
+  "eggGroups": [
+   "Fairy",
+   "Mineral"
+  ],
+  "requiredItem": "Falinksite",
+  "gen": 9,
+  "tier": "Illegal",
+  "isNonstandard": "Future"
+ },
+ "venusaurgmax": {
+  "num": 3,
+  "name": "Venusaur-Gmax",
+  "baseSpecies": "Venusaur",
+  "forme": "Gmax",
+  "types": [
+   "Grass",
+   "Poison"
+  ],
+  "genderRatio": {
+   "M": 0.875,
+   "F": 0.125
+  },
+  "baseStats": {
+   "hp": 80,
+   "atk": 82,
+   "def": 83,
+   "spa": 100,
+   "spd": 100,
+   "spe": 80
+  },
+  "abilities": {
+   "0": "Overgrow",
+   "H": "Chlorophyll"
+  },
+  "heightm": 24,
+  "weightkg": 0,
+  "color": "Green",
+  "eggGroups": [
+   "Monster",
+   "Grass"
+  ],
+  "changesFrom": "Venusaur",
+  "placeholderFor": "Venusaur",
+  "tier": "Illegal",
+  "isNonstandard": "Past"
+ },
+ "typhlosionhisui": {
+  "num": 157,
+  "name": "Typhlosion-Hisui",
+  "baseSpecies": "Typhlosion",
+  "forme": "Hisui",
+  "types": [
+   "Fire",
+   "Ghost"
+  ],
+  "genderRatio": {
+   "M": 0.875,
+   "F": 0.125
+  },
+  "baseStats": {
+   "hp": 73,
+   "atk": 84,
+   "def": 78,
+   "spa": 119,
+   "spd": 85,
+   "spe": 95
+  },
+  "abilities": {
+   "0": "Blaze",
+   "H": "Frisk"
+  },
+  "heightm": 1.6,
+  "weightkg": 69.8,
+  "color": "Yellow",
+  "prevo": "Quilava",
+  "evoLevel": 36,
+  "eggGroups": [
+   "Field"
+  ],
+  "tier": "PU"
+ },
+ "floetteeternal": {
+  "num": 670,
+  "name": "Floette-Eternal",
+  "baseSpecies": "Floette",
+  "forme": "Eternal",
+  "types": [
+   "Fairy"
+  ],
+  "gender": "F",
+  "baseStats": {
+   "hp": 74,
+   "atk": 65,
+   "def": 67,
+   "spa": 125,
+   "spd": 128,
+   "spe": 92
+  },
+  "abilities": {
+   "0": "Flower Veil",
+   "H": "Symbiosis"
+  },
+  "heightm": 0.2,
+  "weightkg": 0.9,
+  "color": "White",
+  "eggGroups": [
+   "Undiscovered"
+  ],
+  "tier": "Illegal",
+  "isNonstandard": "Past"
+ },
+ "rotomwash": {
+  "num": 479,
+  "name": "Rotom-Wash",
+  "baseSpecies": "Rotom",
+  "forme": "Wash",
+  "types": [
+   "Electric",
+   "Water"
+  ],
+  "gender": "N",
+  "baseStats": {
+   "hp": 50,
+   "atk": 65,
+   "def": 107,
+   "spa": 105,
+   "spd": 107,
+   "spe": 86
+  },
+  "abilities": {
+   "0": "Levitate"
+  },
+  "heightm": 0.3,
+  "weightkg": 0.3,
+  "color": "Red",
+  "eggGroups": [
+   "Amorphous"
+  ],
+  "changesFrom": "Rotom",
+  "tier": "UU"
+ },
+ "nidoranf": {
+  "num": 29,
+  "name": "Nidoran-F",
+  "types": [
+   "Poison"
+  ],
+  "gender": "F",
+  "baseStats": {
+   "hp": 55,
+   "atk": 47,
+   "def": 52,
+   "spa": 40,
+   "spd": 40,
+   "spe": 41
+  },
+  "abilities": {
+   "0": "Poison Point",
+   "1": "Rivalry",
+   "H": "Hustle"
+  },
+  "heightm": 0.4,
+  "weightkg": 7,
+  "color": "Blue",
+  "evos": [
+   "Nidorina"
+  ],
+  "eggGroups": [
+   "Monster",
+   "Field"
+  ],
+  "tier": "Illegal",
+  "isNonstandard": "Past"
+ },
+ "farfetchd": {
+  "num": 83,
+  "name": "Farfetch’d",
+  "types": [
+   "Normal",
+   "Flying"
+  ],
+  "baseStats": {
+   "hp": 52,
+   "atk": 90,
+   "def": 55,
+   "spa": 58,
+   "spd": 62,
+   "spe": 60
+  },
+  "abilities": {
+   "0": "Keen Eye",
+   "1": "Inner Focus",
+   "H": "Defiant"
+  },
+  "heightm": 0.8,
+  "weightkg": 15,
+  "color": "Brown",
+  "eggGroups": [
+   "Flying",
+   "Field"
+  ],
+  "otherFormes": [
+   "Farfetch’d-Galar"
+  ],
+  "formeOrder": [
+   "Farfetch’d",
+   "Farfetch’d-Galar"
+  ],
+  "tier": "Illegal",
+  "isNonstandard": "Past"
+ }
+}
