@@ -30,14 +30,6 @@ MAX_RETRIES = 5
 
 # Thresholds
 CUTOFFS = (0, 1500, 1630, 1695, 1760, 1825)
-STANDARD_CUTOFF = 1630
-STANDARD_CUTOFF_OU = 1695
-
-
-def standard_cutoff(format_id: str) -> int:
-    """Threshold to separate lite and complete datasets for a given format"""
-    return STANDARD_CUTOFF_OU if format_id.endswith("ou") else STANDARD_CUTOFF
-
 
 # Local paths
 ROOT_DIR = Path(__file__).resolve().parents[2]
