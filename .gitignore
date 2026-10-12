@@ -235,3 +235,5 @@ kaggle.json
 .editorconfig
 
 .vscode/
+
+.playwright-mcp/

@@ -14,12 +14,14 @@ from rich.progress import (
 )
 
 from smogon_dataset import __version__
-from smogon_dataset.config import INTERIM_DIR, REQUEST_DELAY_S
+from smogon_dataset.config import COMPLETE_DIR, INTERIM_DIR, LITE_DIR, REQUEST_DELAY_S
 from smogon_dataset.fetch import SmogonClient
 from smogon_dataset.formats import FORMATS_PATH, build_formats, read_battles
 from smogon_dataset.inventory import INVENTORY_PATH, build_inventory
+from smogon_dataset.lite import build_lite
 from smogon_dataset.normalize import UnknownPokemonError, is_normalized, normalize_month
 from smogon_dataset.pokedex import POKEMON_PATH, build_pokemon, download_pokedex, unknown_names
+from smogon_dataset.publish import KAGGLE_COMPLETE_DIR, stage_complete
 from smogon_dataset.sync import MonthFailedError, is_synced, month_files, sync_month
 from smogon_dataset.validate import ValidationError, check_formats, check_pokemon
 
@@ -108,6 +110,22 @@ def normalize(
     if failed:
         typer.echo(f"{failed} month(s) not written")
         raise typer.Exit(1)
+
+
+@app.command()
+def lite() -> None:
+    """Derive the Lite dataset from the normalized months: data/lite/<table>.parquet and .csv."""
+    build_lite(COMPLETE_DIR, pl.read_parquet(POKEMON_PATH), pl.read_parquet(FORMATS_PATH))
+    months = pl.scan_parquet(LITE_DIR / "formats.parquet").select(pl.col("month").n_unique()).collect().item()
+    megabytes = sum(path.stat().st_size for path in LITE_DIR.iterdir()) / 1e6
+    typer.echo(f"{months} months, {megabytes:.0f} MB -> {LITE_DIR}")
+
+
+@app.command()
+def stage() -> None:
+    """Lay the Complete tables out for Kaggle, one folder per table: data/kaggle/complete/<table>/<month>.parquet."""
+    stage_complete()
+    typer.echo(f"{sum(1 for _ in KAGGLE_COMPLETE_DIR.rglob('*.parquet'))} files -> {KAGGLE_COMPLETE_DIR}")
 
 
 @app.command()
