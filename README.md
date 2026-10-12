@@ -28,7 +28,7 @@ uv run smogon-dataset inventory     # 1. list every file of the archive
 uv run smogon-dataset sync          # 2. download and parse the months not done yet
 uv run smogon-dataset pokemon       # 3. build the pokemon table, check every name against it
 uv run smogon-dataset formats       # 4. build the formats table
-uv run smogon-dataset normalize     # 5. write the Complete tables
+uv run smogon-dataset normalize     # 5. write the Complete tables, validated on the way out
 uv run pytest -m "not network"      # tests that don't hit smogon.com
 uv run pytest --cov                 # with coverage
 uv run ruff check --fix && uv run ruff format
@@ -49,6 +49,7 @@ src/smogon_dataset/
   pokedex.py       # `pokemon` table from the Pokémon Showdown pokedex
   formats.py       # `formats` table: generation, family, Lite series
   normalize.py     # canonical tables -> tables of the Complete dataset
+  validate.py      # pandera schemas and rules every Complete table must pass
 scripts/           # one-off tools (fixture download)
 tests/
   fixtures/<month> # real sample files from each era, laid out like the server

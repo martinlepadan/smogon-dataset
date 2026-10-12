@@ -104,3 +104,15 @@ def test_read_battles_skips_the_month_being_synced(tmp_path: Path) -> None:
     (tmp_path / "2026-09.part/usage.parquet").write_bytes(b"PAR1 half written")
 
     assert read_battles(tmp_path).rows() == [("2026-08", "gen9ou", 7)]
+
+
+def test_read_battles_finds_the_formats_nobody_played(tmp_path: Path) -> None:
+    (tmp_path / "2026-08").mkdir()
+    pl.DataFrame({"month": ["2026-08"], "format": ["gen9ou"], "battles": [7]}).write_parquet(
+        tmp_path / "2026-08/usage.parquet"
+    )
+    pl.DataFrame({"month": ["2026-08"] * 2, "format": ["gen9ou", "gen5lc"], "battles": [7, 0]}).write_parquet(
+        tmp_path / "2026-08/chaos_info.parquet"
+    )
+
+    assert sorted(read_battles(tmp_path).rows()) == [("2026-08", "gen5lc", 0), ("2026-08", "gen9ou", 7)]

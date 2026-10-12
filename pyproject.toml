@@ -51,6 +51,8 @@ ignore = ["PLR2004"]  # nombres magiques : seuils et constantes métier assumés
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0913"]
+# pandera reads `unique = [...]` from the Config class of a model.
+"src/smogon_dataset/validate.py" = ["RUF012"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

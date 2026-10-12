@@ -11,7 +11,6 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
-    track,
 )
 
 from smogon_dataset import __version__
@@ -19,9 +18,10 @@ from smogon_dataset.config import INTERIM_DIR, REQUEST_DELAY_S
 from smogon_dataset.fetch import SmogonClient
 from smogon_dataset.formats import FORMATS_PATH, build_formats, read_battles
 from smogon_dataset.inventory import INVENTORY_PATH, build_inventory
-from smogon_dataset.normalize import is_normalized, normalize_month
+from smogon_dataset.normalize import UnknownPokemonError, is_normalized, normalize_month
 from smogon_dataset.pokedex import POKEMON_PATH, build_pokemon, download_pokedex, unknown_names
 from smogon_dataset.sync import MonthFailedError, is_synced, month_files, sync_month
+from smogon_dataset.validate import ValidationError, check_formats, check_pokemon
 
 app = typer.Typer(help="Smogon usage stats pipeline.", no_args_is_help=True)
 
@@ -59,6 +59,7 @@ def inventory(
 def pokemon() -> None:
     """Download the Showdown pokedex, write data/interim/pokemon.parquet and check the synced months against it."""
     table = build_pokemon(json.loads(download_pokedex().read_text()))
+    check_pokemon(table)
     table.write_parquet(POKEMON_PATH)
     typer.echo(f"{table.height} formes -> {POKEMON_PATH}")
 
@@ -77,6 +78,7 @@ def pokemon() -> None:
 def formats() -> None:
     """Write data/interim/formats.parquet: generation, family and Lite series of every format of every month."""
     table = build_formats(pl.read_parquet(INVENTORY_PATH), read_battles(INTERIM_DIR))
+    check_formats(table)
     table.write_parquet(FORMATS_PATH)
     lite = table.filter(pl.col("lite_series").is_not_null())
     typer.echo(f"{table.height} (month, format) pairs, {lite.height} in the Lite series -> {FORMATS_PATH}")
@@ -88,12 +90,24 @@ def normalize(
         list[str] | None, typer.Argument(help="Months to normalize. Default: all those not done.")
     ] = None,
 ) -> None:
-    """Turn the canonical tables of synced months into the Complete tables, in data/complete/<month>/."""
-    table = pl.read_parquet(POKEMON_PATH)
+    """Turn the canonical tables of synced months into validated Complete tables, in data/complete/<month>/.
+
+    A month that breaks a validation rule is not written: the run says why and moves on.
+    """
+    pokemon_table, formats_table = pl.read_parquet(POKEMON_PATH), pl.read_parquet(FORMATS_PATH)
     synced = sorted(p.name for p in INTERIM_DIR.iterdir() if p.is_dir() and p.suffix != ".part")
     todo = months or [month for month in synced if not is_normalized(month)]
-    for month in track(todo, description="normalize"):
-        normalize_month(INTERIM_DIR / month, table)
+    failed = 0
+    with Progress(TextColumn("{task.description}"), BarColumn(), MofNCompleteColumn(), TimeElapsedColumn()) as progress:
+        for month in progress.track(todo, description="normalize"):
+            try:
+                normalize_month(INTERIM_DIR / month, pokemon_table, formats_table)
+            except (ValidationError, UnknownPokemonError) as exc:
+                failed += 1
+                progress.console.print(f"FAILED {exc}")
+    if failed:
+        typer.echo(f"{failed} month(s) not written")
+        raise typer.Exit(1)
 
 
 @app.command()
