@@ -21,6 +21,8 @@ def _canonical_month(folder: Path, usage_names: tuple[str, ...] = ("Great Tusk",
         tusk | {"section": "moves", "key": "earthquake", "weight": 9.0},
         tusk | {"section": "spreads", "key": "Jolly:0/252/4/0/0/252", "weight": 7.0},
         tusk | {"section": "happiness", "key": "255", "weight": 10.0},
+        tusk | {"section": "happiness", "key": "1e+308", "weight": 0.5},
+        tusk | {"section": "happiness", "key": "None", "weight": 0.5},
         tusk | {"section": "teammates", "key": "Rotom-Wash", "weight": 3.5},
         tusk | {"section": "teammates", "key": "empty", "weight": 0.5},
     ]
@@ -63,7 +65,7 @@ def test_weights_are_split_into_one_table_per_section(tmp_path: Path) -> None:
         "weight": 10.0,
     }
     assert _row(tables["moves"])["move"] == "earthquake"
-    assert _row(tables["happiness"])["happiness"] == 255
+    assert tables["happiness"].collect()["happiness"].to_list() == [255.0, 1e308, None]
     assert tables["items"].collect().is_empty()
 
 
@@ -136,3 +138,34 @@ def test_matchup_tables_use_the_format_name(tmp_path: Path) -> None:
     tables = month_tables(folder)
     assert _row(tables["monotype_matchups"])["format"] == "gen9monotype"
     assert _row(tables["monotype_type_ranking"])["format"] == "gen9monotype"
+
+
+def test_a_name_spelled_two_ways_ends_up_as_one_pokemon(tmp_path: Path) -> None:
+    # 2022-02: Venomicon and venomicon, the same moveset twice but usage split between the two.
+    folder = _canonical_month(tmp_path / "2026-09")
+    for name, column in [("chaos_weights", "pokemon"), ("chaos_pokemon", "pokemon"), ("chaos_checks", "pokemon")]:
+        table = pl.read_parquet(folder / f"{name}.parquet")
+        twin = table.with_columns(pl.col(column).str.to_lowercase())
+        pl.concat([table, twin]).write_parquet(folder / f"{name}.parquet")
+    weights = pl.read_parquet(folder / "chaos_weights.parquet")
+    as_teammate = weights.filter(pl.col("key") == "Rotom-Wash").with_columns(key=pl.lit("rotom-wash"))
+    pl.concat([weights, as_teammate]).write_parquet(folder / "chaos_weights.parquet")
+    usage = pl.read_parquet(folder / "usage.parquet")
+    twin = usage.filter(pl.col("pokemon") == "Great Tusk").with_columns(
+        pokemon=pl.lit("great tusk"), rank=pl.lit(9, pl.Int64)
+    )
+    pl.concat([usage, twin]).write_parquet(folder / "usage.parquet")
+
+    tables = {name: table.collect() for name, table in month_tables(folder).items()}
+
+    assert tables["abilities"].height == 1
+    assert tables["checks_counters"].height == 1
+    moveset = tables["movesets"].row(0, named=True)
+    assert tables["movesets"].height == 1
+    assert (moveset["raw_count"], moveset["usage"], moveset["players"]) == (10, 1.0, 120)
+    tusk = tables["usage"].row(by_predicate=pl.col("pokemon_id") == "greattusk", named=True)
+    assert (tusk["rank"], tusk["usage_pct"], tusk["raw"]) == (1, 100.0, 20)
+    # Teammate weights of the surviving entry: Rotom-Wash under both spellings (3.5 twice), the empty slot once.
+    pairs = dict(zip(tables["teammates"]["teammate_id"], tables["teammates"]["count"], strict=True))
+    assert pairs == {"rotomwash": 7.0, None: 0.5}
+    assert tables["teammates"]["association_score"].null_count() == 2

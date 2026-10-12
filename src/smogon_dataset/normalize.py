@@ -53,24 +53,25 @@ def month_tables(month_dir: Path) -> dict[str, pl.LazyFrame]:
     def scan(name: str) -> pl.LazyFrame:
         return pl.scan_parquet(month_dir / f"{name}.parquet")
 
-    weights = scan("chaos_weights")
-    usage = scan("usage")
+    chaos_pokemon, weights, checks = scan("chaos_pokemon"), scan("chaos_weights"), scan("chaos_checks")
+    repeated = repeated_entries(chaos_pokemon)
+    if repeated.height:
+        weights = weights.join(repeated.lazy(), on=[*KEYS, "pokemon"], how="anti")
+        checks = checks.join(repeated.lazy(), on=[*KEYS, "pokemon"], how="anti")
+    usage, leads = scan("usage"), scan("leads")
     tables = {
-        "cutoffs": cutoffs(usage, scan("leads"), scan("metagame_stalliness")),
-        "usage": usage.select(*KEYS, _id("pokemon"), "rank", "usage_pct", "raw", "raw_pct", "real", "real_pct"),
-        "leads": scan("leads").select(*KEYS, _id("pokemon"), "rank", "usage_pct", "raw", "raw_pct"),
-        "movesets": movesets(scan("chaos_pokemon")),
+        "cutoffs": cutoffs(usage, leads, scan("metagame_stalliness")),
+        "usage": _one_row_per_pokemon(usage, ["usage_pct", "raw", "raw_pct", "real", "real_pct"]),
+        "leads": _one_row_per_pokemon(leads, ["usage_pct", "raw", "raw_pct"]),
+        "movesets": movesets(chaos_pokemon),
         "abilities": _weights(weights, "abilities", "ability"),
         "items": _weights(weights, "items", "item"),
         "moves": _weights(weights, "moves", "move"),
         "tera_types": _weights(weights, "tera_types", "tera_type"),
-        # Int64: hackmons players type in values like 744444444444444500.
-        "happiness": _weights(weights, "happiness", "happiness").with_columns(pl.col("happiness").cast(pl.Int64)),
+        "happiness": happiness(weights),
         "spreads": spreads(weights),
-        "teammates": teammates(weights, month_dir.name),
-        "checks_counters": scan("chaos_checks").select(
-            *KEYS, _id("pokemon"), _id("opponent", "opponent_id"), "n", "p", "d"
-        ),
+        "teammates": teammates(weights, month_dir.name, repeated),
+        "checks_counters": checks.select(*KEYS, _id("pokemon"), _id("opponent", "opponent_id"), "n", "p", "d"),
         "metagame_styles": scan("metagame"),
         "stalliness": scan("metagame_stalliness").select(*KEYS, "bin", "hashes"),
     }
@@ -86,6 +87,36 @@ def month_tables(month_dir: Path) -> dict[str, pl.LazyFrame]:
 
 def _id(column: str, alias: str = "pokemon_id") -> pl.Expr:
     return pokemon_id(pl.col(column)).alias(alias)
+
+
+def _total(column: str) -> pl.Expr:
+    """Sum of a group, null rather than 0 when the group holds nothing but nulls."""
+    return pl.when(pl.col(column).is_not_null().any()).then(pl.col(column).sum()).alias(column)
+
+
+def repeated_entries(chaos_pokemon: pl.LazyFrame) -> pl.DataFrame:
+    """Chaos entries that repeat another entry of the same file under a second spelling.
+
+    2022-02 has both Venomicon and venomicon in two formats. Their moveset data is the
+    same data twice, so the second entry is dropped. Their usage, and their weights as
+    teammates of other Pokémon, are split between the two names and get added up.
+    """
+    return (
+        chaos_pokemon.select(*KEYS, "pokemon", _id("pokemon"))
+        .sort(*KEYS, "pokemon")
+        .filter(~pl.col("pokemon_id").is_first_distinct().over(*KEYS, "pokemon_id"))
+        .select(*KEYS, "pokemon")
+        .collect()
+    )
+
+
+def _one_row_per_pokemon(ranking: pl.LazyFrame, summed: list[str]) -> pl.LazyFrame:
+    """usage and leads keyed by pokemon_id, the rows of two spellings of one name added up."""
+    return (
+        ranking.with_columns(_id("pokemon"))
+        .group_by(*KEYS, "pokemon_id", maintain_order=True)
+        .agg(pl.col("rank").min(), *[_total(column) for column in summed])
+    )
 
 
 def _weights(weights: pl.LazyFrame, section: str, key: str) -> pl.LazyFrame:
@@ -112,17 +143,26 @@ def cutoffs(usage: pl.LazyFrame, leads: pl.LazyFrame, stalliness: pl.LazyFrame) 
 
 def movesets(chaos_pokemon: pl.LazyFrame) -> pl.LazyFrame:
     # Viability Ceiling is [players who used it, best GXE among them, 99th percentile, 95th percentile].
-    ceiling = pl.col("viability_ceiling").list
-    return chaos_pokemon.select(
-        *KEYS,
-        _id("pokemon"),
-        "raw_count",
-        "usage",
-        ceiling.get(0, null_on_oob=True).alias("players"),
-        ceiling.get(1, null_on_oob=True).alias("gxe_top"),
-        ceiling.get(2, null_on_oob=True).alias("gxe_p99"),
-        ceiling.get(3, null_on_oob=True).alias("gxe_p95"),
+    ceiling = pl.col("viability_ceiling").first().list
+    return (
+        chaos_pokemon.with_columns(_id("pokemon"))
+        .group_by(*KEYS, "pokemon_id", maintain_order=True)
+        .agg(
+            pl.col("raw_count").first(),
+            _total("usage"),
+            ceiling.get(0, null_on_oob=True).alias("players"),
+            ceiling.get(1, null_on_oob=True).alias("gxe_top"),
+            ceiling.get(2, null_on_oob=True).alias("gxe_p99"),
+            ceiling.get(3, null_on_oob=True).alias("gxe_p95"),
+        )
     )
+
+
+def happiness(weights: pl.LazyFrame) -> pl.LazyFrame:
+    # The game caps happiness at 255, but hackmons players type in anything: 127.5, 1e+308,
+    # or nothing at all, which Smogon writes "null" or "None". Hence a float, and nulls.
+    value = pl.col("happiness").replace({"null": None, "None": None}).cast(pl.Float64)
+    return _weights(weights, "happiness", "happiness").with_columns(value)
 
 
 def spreads(weights: pl.LazyFrame) -> pl.LazyFrame:
@@ -138,11 +178,11 @@ def spreads(weights: pl.LazyFrame) -> pl.LazyFrame:
     )
 
 
-def teammates(weights: pl.LazyFrame, month: str) -> pl.LazyFrame:
+def teammates(weights: pl.LazyFrame, month: str, repeated: pl.DataFrame) -> pl.LazyFrame:
     """Same key in the source, two meanings: each gets its own column, the other stays null."""
     is_count = month >= TEAMMATES_COUNT_SINCE
     nothing = pl.lit(None, pl.Float32)
-    return weights.filter(pl.col("section") == "teammates").select(
+    pairs = weights.filter(pl.col("section") == "teammates").select(
         *KEYS,
         _id("pokemon"),
         # "empty" is the free slot of a team of fewer than six, not a Pokémon.
@@ -150,3 +190,14 @@ def teammates(weights: pl.LazyFrame, month: str) -> pl.LazyFrame:
         (nothing if is_count else pl.col("weight")).alias("association_score"),
         (pl.col("weight") if is_count else nothing).alias("count"),
     )
+    if repeated.is_empty():
+        return pairs
+    # Only the formats with a name spelled two ways need the group-by, which is costly on this table.
+    # Whole formats, not files: at some cutoffs the name is doubled among the teammates only.
+    formats = repeated.select("format").unique().lazy()
+    merged = (
+        pairs.join(formats, on="format", how="semi")
+        .group_by(*KEYS, "pokemon_id", "teammate_id", maintain_order=True)
+        .agg(_total("association_score"), _total("count"))
+    )
+    return pl.concat([pairs.join(formats, on="format", how="anti"), merged])
