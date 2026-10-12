@@ -11,12 +11,15 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
+    track,
 )
 
 from smogon_dataset import __version__
 from smogon_dataset.config import INTERIM_DIR, REQUEST_DELAY_S
 from smogon_dataset.fetch import SmogonClient
+from smogon_dataset.formats import FORMATS_PATH, build_formats, read_battles
 from smogon_dataset.inventory import INVENTORY_PATH, build_inventory
+from smogon_dataset.normalize import is_normalized, normalize_month
 from smogon_dataset.pokedex import POKEMON_PATH, build_pokemon, download_pokedex, unknown_names
 from smogon_dataset.sync import MonthFailedError, is_synced, month_files, sync_month
 
@@ -64,6 +67,29 @@ def pokemon() -> None:
         typer.echo(f"  not in the pokedex: {name!r}, {len(months)} month(s) from {months[0]} to {months[-1]}")
     if unknown:
         raise typer.Exit(1)
+
+
+@app.command()
+def formats() -> None:
+    """Write data/interim/formats.parquet: generation, family and Lite series of every format of every month."""
+    table = build_formats(pl.read_parquet(INVENTORY_PATH), read_battles(INTERIM_DIR))
+    table.write_parquet(FORMATS_PATH)
+    lite = table.filter(pl.col("lite_series").is_not_null())
+    typer.echo(f"{table.height} (month, format) pairs, {lite.height} in the Lite series -> {FORMATS_PATH}")
+
+
+@app.command()
+def normalize(
+    months: Annotated[
+        list[str] | None, typer.Argument(help="Months to normalize. Default: all those not done.")
+    ] = None,
+) -> None:
+    """Turn the canonical tables of synced months into the Complete tables, in data/complete/<month>/."""
+    table = pl.read_parquet(POKEMON_PATH)
+    synced = sorted(p.name for p in INTERIM_DIR.iterdir() if p.is_dir() and p.suffix != ".part")
+    todo = months or [month for month in synced if not is_normalized(month)]
+    for month in track(todo, description="normalize"):
+        normalize_month(INTERIM_DIR / month, table)
 
 
 @app.command()
