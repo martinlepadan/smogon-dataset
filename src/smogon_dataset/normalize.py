@@ -79,7 +79,8 @@ def month_tables(month_dir: Path) -> dict[str, pl.LazyFrame]:
         tables["mega"] = scan("mega").select(*KEYS, _id("pokemon"), "pct")
     for name in ("monotype_matchups", "monotype_type_ranking"):
         if (month_dir / f"{name}.parquet").exists():
-            tables[name] = scan(name)
+            # The files are called gen9monotype-matchup_chart-0.txt: the format is gen9monotype.
+            tables[name] = scan(name).with_columns(pl.col("format").str.strip_suffix("-matchup_chart"))
     return tables
 
 

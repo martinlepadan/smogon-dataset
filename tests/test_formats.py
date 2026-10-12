@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import polars as pl
 
-from smogon_dataset.formats import build_formats
+from smogon_dataset.formats import build_formats, read_battles
 
 
 def _inventory(formats: dict[str, dict[str, list[int]]]) -> pl.DataFrame:
@@ -92,3 +94,13 @@ def test_vgc_series_is_the_most_played_vgc_format() -> None:
     assert formats["2015-01", "vgc2015"]["lite_series"] == "vgc"
     assert formats["2026-09", "gen9vgc2026regibo3"]["lite_series"] == "vgc"
     assert formats["2026-09", "gen9vgc2026regi"]["lite_series"] is None
+
+
+def test_read_battles_skips_the_month_being_synced(tmp_path: Path) -> None:
+    usage = pl.DataFrame({"month": ["2026-08"], "format": ["gen9ou"], "battles": [7]})
+    (tmp_path / "2026-08").mkdir()
+    usage.write_parquet(tmp_path / "2026-08/usage.parquet")
+    (tmp_path / "2026-09.part").mkdir()
+    (tmp_path / "2026-09.part/usage.parquet").write_bytes(b"PAR1 half written")
+
+    assert read_battles(tmp_path).rows() == [("2026-08", "gen9ou", 7)]

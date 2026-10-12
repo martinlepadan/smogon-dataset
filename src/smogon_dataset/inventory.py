@@ -53,12 +53,19 @@ def walk_month(client: SmogonClient, month: str, refresh: bool = False) -> Itera
             }
 
 
-def build_inventory(client: SmogonClient, months: list[str] | None = None) -> pl.DataFrame:
+def build_inventory(
+    client: SmogonClient, months: list[str] | None = None, previous: pl.DataFrame | None = None
+) -> pl.DataFrame:
+    """Crawl `months` (default: all). The other months of `previous` are kept as they are."""
     # The latest month can still gain files, so its listings are always refetched.
     all_months = list_months(client, refresh=True)
     latest = all_months[-1]
-    rows = [row for month in months or all_months for row in walk_month(client, month, refresh=month == latest)]
-    return pl.DataFrame(rows, schema=SCHEMA).sort("month", "section", "file")
+    crawled = months or all_months
+    rows = [row for month in crawled for row in walk_month(client, month, refresh=month == latest)]
+    inventory = pl.DataFrame(rows, schema=SCHEMA)
+    if previous is not None:
+        inventory = pl.concat([previous.filter(~pl.col("month").is_in(crawled)), inventory])
+    return inventory.sort("month", "section", "file")
 
 
 def standard_cutoffs(inventory: pl.DataFrame) -> pl.DataFrame:

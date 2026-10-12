@@ -42,9 +42,13 @@ def version() -> None:
 def inventory(
     months: Annotated[list[str] | None, typer.Argument(help="Months to crawl, e.g. 2026-09. Default: all.")] = None,
 ) -> None:
-    """Crawl the archive listings and write one row per file to data/interim/inventory.parquet."""
+    """Crawl the archive listings and write one row per file to data/interim/inventory.parquet.
+
+    With months, only their rows are replaced: the rest of the inventory is kept.
+    """
+    previous = pl.read_parquet(INVENTORY_PATH) if INVENTORY_PATH.exists() else None
     with SmogonClient() as client:
-        df = build_inventory(client, months)
+        df = build_inventory(client, months, previous)
         INVENTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
         df.write_parquet(INVENTORY_PATH)
         typer.echo(f"{df.height} files, {df['month'].n_unique()} months, {client.requests_made} requests")

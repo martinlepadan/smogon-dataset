@@ -21,7 +21,8 @@ _GEN_PREFIX = r"^gen(\d)"
 
 def read_battles(interim_dir: Path) -> pl.DataFrame:
     """Battles of each (month, format), from the header of the usage files of the synced months."""
-    usage_files = sorted(interim_dir.glob("*/usage.parquet"))
+    # A <month>.part folder is a month sync is still writing: its files have no footer yet.
+    usage_files = sorted(path for path in interim_dir.glob("*/usage.parquet") if path.parent.suffix != ".part")
     months = [pl.scan_parquet(path).select("month", "format", "battles").unique() for path in usage_files]
     # Same number at every cutoff: the cutoff changes the weights, not the battles counted.
     return pl.concat(months).unique().collect()

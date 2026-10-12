@@ -1,9 +1,10 @@
 from pathlib import Path
 
+import httpx
 import polars as pl
 
 from smogon_dataset.fetch import SmogonClient
-from smogon_dataset.inventory import standard_cutoffs, walk_month
+from smogon_dataset.inventory import SCHEMA, build_inventory, standard_cutoffs, walk_month
 
 
 def _listing(*names: str) -> str:
@@ -50,4 +51,26 @@ def test_standard_cutoff_follows_the_files() -> None:
         ("2022-10", "gen8uu", 1630),
         ("2022-11", "gen8ou", 1630),
         ("2022-11", "gen9ou", 1695),
+    ]
+
+
+def test_crawling_some_months_keeps_the_others(tmp_path: Path) -> None:
+    pages = {
+        "/stats/": _listing("2026-08/", "2026-09/"),
+        "/stats/2026-09/": _listing("gen9ou-0.txt", "gen9uu-0.txt"),
+    }
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, stream=httpx.ByteStream(pages[request.url.path].encode()))
+    )
+    old_row = {"month": "2026-08", "section": "", "file": "gen9ou-0.txt", "format": "gen9ou", "cutoff": 0, "ext": "txt"}
+    stale_row = old_row | {"month": "2026-09", "file": "gone-0.txt", "format": "gone"}
+    previous = pl.DataFrame([old_row, stale_row], schema=SCHEMA)
+
+    with SmogonClient(cache_dir=tmp_path, delay_s=0, transport=transport) as client:
+        inventory = build_inventory(client, ["2026-09"], previous)
+
+    assert inventory.select("month", "file").rows() == [
+        ("2026-08", "gen9ou-0.txt"),
+        ("2026-09", "gen9ou-0.txt"),
+        ("2026-09", "gen9uu-0.txt"),
     ]

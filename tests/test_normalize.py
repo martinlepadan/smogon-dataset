@@ -121,3 +121,18 @@ def test_normalize_month_writes_a_folder_or_names_the_unknown_pokemon(tmp_path: 
     with pytest.raises(UnknownPokemonError, match="Fakemon"):
         normalize_month(_canonical_month(interim / "2026-08", ("Great Tusk", "Fakemon")), pokemon, complete)
     assert not (complete / "2026-08").exists()
+
+
+def test_matchup_tables_use_the_format_name(tmp_path: Path) -> None:
+    folder = _canonical_month(tmp_path / "2026-09")
+    key = {"month": "2026-09", "format": "gen9monotype-matchup_chart", "cutoff": 0}
+    pl.DataFrame([key | {"type": "Bug", "opponent": "Fire", "battles": 12.0, "win_pct": 30.0}]).write_parquet(
+        folder / "monotype_matchups.parquet"
+    )
+    pl.DataFrame([key | {"type": "Bug", "viability_score": 1.5}]).write_parquet(
+        folder / "monotype_type_ranking.parquet"
+    )
+
+    tables = month_tables(folder)
+    assert _row(tables["monotype_matchups"])["format"] == "gen9monotype"
+    assert _row(tables["monotype_type_ranking"])["format"] == "gen9monotype"
