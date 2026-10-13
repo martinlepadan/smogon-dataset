@@ -184,6 +184,10 @@ def test_cards_describe_every_column_of_the_files_kaggle_lets_us_describe(tmp_pa
     for card in (lite, year, _card(staged / "complete-2021")):
         assert 6 <= len(card["title"]) <= 50
         assert 20 <= len(card["subtitle"]) <= 80
+        assert "smogon.com/stats" in card["userSpecifiedSources"]
+    # Only the last year gets new months.
+    latest = _card(staged / "complete-2021")
+    assert [card["expectedUpdateFrequency"] for card in (lite, year, latest)] == ["monthly", "never", "monthly"]
 
 
 def test_cards_link_to_each_other_and_a_year_describes_the_tables_it_has(tmp_path: Path) -> None:

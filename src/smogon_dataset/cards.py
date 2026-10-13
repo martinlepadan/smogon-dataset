@@ -9,6 +9,10 @@ from smogon_dataset.columns import COLUMNS, KEYS, TABLES, lite_columns
 OWNER = "martinlepadan"
 # Not decided yet. "other" is Kaggle's "see the description".
 LICENSE = "CC-BY-4.0"
+SOURCES = (
+    "Monthly usage statistics published by Smogon at https://www.smogon.com/stats/, computed from Pokémon Showdown "
+    "battles. Pokémon data from https://github.com/smogon/pokemon-showdown."
+)
 # Kaggle drops without a word the keywords that are not tags it knows.
 KEYWORDS = ["games", "video games", "tabular"]
 
@@ -169,6 +173,8 @@ def lite_card(schemas: Schemas, years: list[str]) -> dict[str, object]:
         "id": f"{OWNER}/{LITE_SLUG}",
         "licenses": [{"name": LICENSE}],
         "keywords": KEYWORDS,
+        "userSpecifiedSources": SOURCES,
+        "expectedUpdateFrequency": "monthly",
         "description": _LITE.format(source=_SOURCE, keys=_KEYS, quirks=_QUIRKS, years=_year_links(years)),
         "resources": [
             _resource(f"{table}{suffix}", table, schema, lite_columns(table))
@@ -200,6 +206,9 @@ def complete_card(year: str, years: list[str], month: str, schemas: Schemas) -> 
         "id": f"{OWNER}/{slug}",
         "licenses": [{"name": LICENSE}],
         "keywords": KEYWORDS,
+        "userSpecifiedSources": SOURCES,
+        # A past year is never sent again.
+        "expectedUpdateFrequency": "monthly" if year == max(years) else "never",
         "description": description,
         "resources": [_resource(f"{table}.parquet", table, schemas[table], COLUMNS[table]) for table in ROOT_TABLES],
     }
