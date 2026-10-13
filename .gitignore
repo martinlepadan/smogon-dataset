@@ -237,3 +237,5 @@ kaggle.json
 .vscode/
 
 .playwright-mcp/
+
+thumbnails/
