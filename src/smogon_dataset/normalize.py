@@ -102,7 +102,7 @@ def month_tables(month_dir: Path, repeated: pl.DataFrame) -> dict[str, pl.LazyFr
     }
     # Only some months have these.
     if (month_dir / "mega.parquet").exists():
-        tables["mega"] = scan("mega").select(*KEYS, _id("pokemon"), "pct")
+        tables["mega"] = scan("mega").select(*KEYS, _mega_id(), "pct")
     for name in ("monotype_matchups", "monotype_type_ranking"):
         if (month_dir / f"{name}.parquet").exists():
             # The files are called gen9monotype-matchup_chart-0.txt: the format is gen9monotype.
@@ -124,6 +124,20 @@ def weight_tables(weights: pl.DataFrame, month: str) -> dict[str, pl.DataFrame]:
 
 def _id(column: str, alias: str = "pokemon_id") -> pl.Expr:
     return pokemon_id(pl.col(column)).alias(alias)
+
+
+def _mega_id() -> pl.Expr:
+    """Id of the Mega forme. mega/ names the species that holds the stone (Venusaur, Charizard X)."""
+    holder = pokemon_id(pl.col("pokemon"))
+    return (
+        pl.when(holder.str.contains("mega[xy]$"))
+        .then(holder)
+        # MegaCounter.py counts the Red and Blue Orbs along with the Mega Stones.
+        .when(holder.is_in(["groudon", "kyogre"]))
+        .then(holder + "primal")
+        .otherwise(holder + "mega")
+        .alias("pokemon_id")
+    )
 
 
 def _total(column: str) -> pl.Expr:
@@ -187,7 +201,8 @@ def cutoffs(
 
 
 def movesets(chaos_pokemon: pl.LazyFrame) -> pl.LazyFrame:
-    # Viability Ceiling is [players who used it, best GXE among them, 99th percentile, 95th percentile].
+    # Viability Ceiling is [players who used it, best GXE among them, GXE of the top 1 %, GXE of the top 20 %]:
+    # batchMovesetCounter.py in Antar1011/Smogon-Usage-Stats.
     ceiling = pl.col("viability_ceiling").first().list
     return (
         chaos_pokemon.with_columns(_id("pokemon"))
@@ -198,7 +213,7 @@ def movesets(chaos_pokemon: pl.LazyFrame) -> pl.LazyFrame:
             ceiling.get(0, null_on_oob=True).alias("players"),
             ceiling.get(1, null_on_oob=True).alias("gxe_top"),
             ceiling.get(2, null_on_oob=True).alias("gxe_p99"),
-            ceiling.get(3, null_on_oob=True).alias("gxe_p95"),
+            ceiling.get(3, null_on_oob=True).alias("gxe_p80"),
         )
     )
 

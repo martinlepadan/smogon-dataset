@@ -4,7 +4,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from smogon_dataset.normalize import UnknownPokemonError, normalize_month
+from smogon_dataset.normalize import UnknownPokemonError, _mega_id, normalize_month
 from smogon_dataset.parsers.chaos import CHECKS_SCHEMA, POKEMON_SCHEMA, WEIGHTS_SCHEMA
 from smogon_dataset.pokedex import build_pokemon
 
@@ -126,7 +126,7 @@ def test_file_level_numbers_go_to_cutoffs(tmp_path: Path) -> None:
 def test_movesets_and_checks(tmp_path: Path) -> None:
     tables = _normalize(_canonical_month(tmp_path / "interim" / "2026-09"))
     moveset = _row(tables["movesets"])
-    assert (moveset["players"], moveset["gxe_top"], moveset["gxe_p99"], moveset["gxe_p95"]) == (120, 90, 81, 63)
+    assert (moveset["players"], moveset["gxe_top"], moveset["gxe_p99"], moveset["gxe_p80"]) == (120, 90, 81, 63)
     check = _row(tables["checks_counters"])
     assert (check["pokemon_id"], check["opponent_id"]) == ("greattusk", "rotomwash")
 
@@ -142,6 +142,17 @@ def test_normalize_month_writes_a_folder_or_names_the_unknown_pokemon(tmp_path: 
     with pytest.raises(UnknownPokemonError, match="Fakemon"):
         normalize_month(_canonical_month(interim / "2026-08", ("Great Tusk", "Fakemon")), pokemon, FORMATS, complete)
     assert not (complete / "2026-08").exists()
+
+
+def test_mega_rows_are_named_after_the_forme_the_holder_turns_into() -> None:
+    holders = pl.DataFrame({"pokemon": ["Venusaur", "Charizard X", "Mewtwo Y", "Groudon", "Rayquaza"]})
+    assert holders.select(_mega_id())["pokemon_id"].to_list() == [
+        "venusaurmega",
+        "charizardmegax",
+        "mewtwomegay",
+        "groudonprimal",
+        "rayquazamega",
+    ]
 
 
 def test_matchup_tables_use_the_format_name(tmp_path: Path) -> None:

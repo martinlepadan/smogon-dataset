@@ -87,7 +87,7 @@ class Movesets(PerPokemon):
     players: pl.Int64 = pa.Field(ge=0, nullable=True)
     gxe_top: pl.Int64 = pa.Field(ge=0, le=100, nullable=True)
     gxe_p99: pl.Int64 = pa.Field(ge=0, le=100, nullable=True)
-    gxe_p95: pl.Int64 = pa.Field(ge=0, le=100, nullable=True)
+    gxe_p80: pl.Int64 = pa.Field(ge=0, le=100, nullable=True)
 
     class Config:
         unique = POKEMON
