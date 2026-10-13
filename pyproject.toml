@@ -1,7 +1,7 @@
 [project]
 name = "smogon-dataset"
 version = "0.1.0"
-description = "Pipeline ETL des statistiques d'usage Smogon (2014 → aujourd'hui) vers deux datasets Kaggle : Lite et Complete."
+description = "Pipeline ETL des statistiques d'usage Smogon (2014 → aujourd'hui) vers les datasets Kaggle Lite et Complete (un par année)."
 authors = [
     { name = "Martin", email = "martin.lepadanc@gmail.com" }
 ]
