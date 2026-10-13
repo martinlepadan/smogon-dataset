@@ -24,8 +24,8 @@ jobs:
     # One request a second to smogon.com: a month of 1300 files takes about half an hour to download.
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - run: uv sync --locked --no-dev
