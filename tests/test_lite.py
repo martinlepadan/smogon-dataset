@@ -53,12 +53,16 @@ def test_lite_leaves_out_special_months_and_months_not_normalized(tmp_path: Path
     _complete_month(complete, "2020-11", [("gen8ou", 1695)])
     _complete_month(complete, "2020-11-H1", [("gen8ou", 1695)])
     (complete / "2020-12.part").mkdir()
+    (tmp_path / "lite").mkdir()
+    (tmp_path / "lite/.gitkeep").touch()
     formats = _formats([(month, "gen8ou", 1695, "gen8ou") for month in ("2020-11", "2020-11-H1", "2020-12", "2021-01")])
 
     build_lite(complete, POKEMON, formats, tmp_path / "lite")
 
     assert pl.read_parquet(tmp_path / "lite/usage.parquet")["month"].to_list() == ["2020-11"]
     assert pl.read_parquet(tmp_path / "lite/formats.parquet")["month"].to_list() == ["2020-11"]
+    assert (tmp_path / "lite/.gitkeep").exists()
+    assert not (tmp_path / "lite.part").exists()
 
 
 def test_weights_become_the_share_of_the_sets_of_the_pokemon(tmp_path: Path) -> None:

@@ -14,6 +14,9 @@ WEIGHT_TABLES = ("abilities", "items", "moves", "tera_types")
 # Below this share of a Pokémon's sets a row is dropped. The long tail is half the moves
 # and two thirds of the items, and it stays in the Complete dataset.
 MIN_PCT = 0.1
+# The one usage file of a Lite series that Smogon published empty. Its chaos file is fine,
+# so that month the series has abilities, items and moves but no ranking.
+NO_USAGE_AT_SOURCE = pl.DataFrame({"month": ["2016-02"], "format": ["anythinggoes"]})
 
 
 class MissingFromLiteError(Exception):
@@ -28,7 +31,7 @@ def lite_formats(formats: pl.DataFrame) -> pl.DataFrame:
 
 def build_lite(complete_dir: Path, pokemon: pl.DataFrame, formats: pl.DataFrame, out_dir: Path = LITE_DIR) -> None:
     """Write <out_dir>/<table>.parquet and .csv, one file per table over every normalized month."""
-    normalized = [path.name for path in complete_dir.iterdir() if path.suffix != ".part"]
+    normalized = [path.name for path in complete_dir.iterdir() if path.is_dir() and path.suffix != ".part"]
     kept = lite_formats(formats).filter(pl.col("month").is_in(normalized)).sort("month", "format")
 
     tmp = out_dir.with_name(out_dir.name + ".part")
@@ -55,12 +58,15 @@ def build_lite(complete_dir: Path, pokemon: pl.DataFrame, formats: pl.DataFrame,
     # Every Lite format was played, so each must have come out with a usage ranking.
     files = kept.select("month", "format", pl.col("standard_cutoff").alias("cutoff"))
     ranked = pl.scan_parquet(tmp / "usage.parquet").select(KEYS).unique().collect()
-    missing = files.join(ranked, on=KEYS, how="anti")
+    missing = files.join(ranked, on=KEYS, how="anti").join(NO_USAGE_AT_SOURCE, on=["month", "format"], how="anti")
     if missing.height:
         raise MissingFromLiteError(f"no usage at the standard cutoff for {missing.rows()}")
 
-    shutil.rmtree(out_dir, ignore_errors=True)
-    tmp.rename(out_dir)
+    # File by file: data/lite holds a .gitkeep that must stay.
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for written in tmp.iterdir():
+        written.replace(out_dir / written.name)
+    tmp.rmdir()
 
 
 def _lite_rows(month_dir: Path, table: str, month_formats: pl.DataFrame) -> pl.DataFrame:
