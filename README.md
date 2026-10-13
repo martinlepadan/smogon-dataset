@@ -1,13 +1,12 @@
 # Smogon Usage Stats
 
 ETL pipeline that turns the Pokemon Showdown usage stats archive
-([smogon.com/stats](https://www.smogon.com/stats/), since November 2014) into **two Kaggle datasets**,
-normalized and updated automatically every month:
+([smogon.com/stats](https://www.smogon.com/stats/), since November 2014) into normalized Kaggle datasets:
 
 - **Lite**: the most played formats, standard rating cutoff only, CSV + Parquet.
-- **Complete**: every format, every cutoff, every section, partitioned Parquet.
+- **Complete**: every format, every cutoff, every section, in Parquet. One dataset per year.
 
-> Status: WIP
+> Status: WIP. The pipeline runs up to the Kaggle layout. Publishing and the monthly automatic update are not built yet.
 
 ## Setup
 
@@ -30,12 +29,118 @@ uv run smogon-dataset pokemon       # 3. build the pokemon table, check every na
 uv run smogon-dataset formats       # 4. build the formats table
 uv run smogon-dataset normalize     # 5. write the Complete tables, validated on the way out
 uv run smogon-dataset lite          # 6. derive the Lite dataset from the Complete tables
-uv run smogon-dataset stage         # 7. lay the Complete tables out for Kaggle, one folder per table
+uv run smogon-dataset stage         # 7. lay the Complete tables out for Kaggle, one dataset per year
 uv run pytest -m "not network"      # tests that don't hit smogon.com
 uv run pytest --cov                 # with coverage
 uv run ruff check --fix && uv run ruff format
 uv run mypy
 ```
+
+## Data flow
+
+Each arrow is one command, run in this order.
+
+```mermaid
+flowchart TD
+    smogon(["smogon.com/stats"])
+    raw["data/raw<br>files as served, gzipped"]
+    interim["data/interim/MONTH<br>canonical tables"]
+    complete["data/complete/MONTH<br>Complete tables"]
+    lite["data/lite<br>Lite tables, Parquet and CSV"]
+    kaggle["data/kaggle<br>one folder per Kaggle dataset"]
+
+    smogon -->|"1. inventory, 2. sync"| raw
+    raw -->|"2. sync"| interim
+    interim -->|"5. normalize"| complete
+    complete -->|"6. lite"| lite
+    complete -->|"7. stage"| kaggle
+    lite -->|"7. stage"| kaggle
+```
+
+`inventory` lists every file on the server, and `sync` works from that list: it downloads one month, parses it, then deletes the download.
+The archive is 54 GB gzipped, so the disk never holds more than one raw month.
+The upload to Kaggle and the monthly GitHub Actions run are planned, not built.
+
+Steps 3 and 4 build the two lookup tables that the later steps read.
+
+```mermaid
+flowchart LR
+    showdown(["Pokémon Showdown pokedex"]) -->|"3. pokemon"| pokemon["pokemon.parquet"]
+    inventory["inventory.parquet"] -->|"4. formats"| formats["formats.parquet"]
+    battles["battle counts<br>of the synced months"] -->|"4. formats"| formats
+    pokemon --> users["normalize, lite, stage"]
+    formats --> users
+```
+
+The interim tables are a lossless copy of what Smogon wrote: `sync` rebuilds every chaos JSON from them and refuses the month if it differs.
+Meaning is only added in `normalize`: names become `pokemon_id`, the weights are split into one table per kind (moves, items, spreads...).
+A month that breaks a validation rule is not written.
+
+### How the tables join
+
+```mermaid
+flowchart LR
+    formats["formats<br>one row per month and format"]
+    cutoffs["cutoffs<br>one row per month, format and cutoff"]
+    perfile["metagame_styles, stalliness,<br>monotype_matchups, monotype_type_ranking"]
+    perpokemon["usage, leads, movesets, mega,<br>abilities, items, moves, tera_types,<br>spreads, happiness,<br>teammates, checks_counters"]
+    pokemon["pokemon<br>one row per forme"]
+
+    formats -->|"month, format"| cutoffs
+    cutoffs -->|"month, format, cutoff"| perfile
+    cutoffs -->|"month, format, cutoff"| perpokemon
+    pokemon -->|"pokemon_id"| perpokemon
+```
+
+`format` is the name Smogon used that month (`ou` in 2015, `gen6ou` later). `formats` gives it a `format_id`, a `family` and a generation so a tier can be followed across the years.
+`teammates` and `checks_counters` point to a second Pokémon, through `teammate_id` and `opponent_id`.
+
+### From Complete to Lite
+
+```mermaid
+flowchart LR
+    complete["Complete<br>every format, every cutoff,<br>raw weights"]
+    f1["keep the 18 Lite series,<br>at their standard cutoff"]
+    f2["leave out the special months"]
+    f3["weights become pct,<br>rows under 0.1 % dropped"]
+    lite["Lite<br>8 tables"]
+    complete --> f1 --> f2 --> f3 --> lite
+```
+
+The 18 series are the OU of each generation, 8 tiers that follow the current generation, and the most played VGC format of each month.
+Special months (`2020-11-H1`, `2023-09-DLC1`...) are slices of a month that is also published whole, so keeping them would count battles twice.
+The Lite keeps `cutoffs`, `usage`, `abilities`, `items`, `moves`, `tera_types`, plus `pokemon` and `formats`.
+
+### What is on disk
+
+```
+data/
+  raw/
+    2026-09/                 # directory listings stay, stat files go once the month is parsed
+    showdown/pokedex.json
+  interim/
+    inventory.parquet        # one row per file of the archive
+    pokemon.parquet
+    formats.parquet
+    2026-09/                 # chaos_info, chaos_pokemon, chaos_weights, chaos_checks,
+                             # usage, leads, metagame, metagame_stalliness, ...
+  complete/
+    2026-09/                 # usage.parquet, moves.parquet, teammates.parquet, ...
+  lite/
+    usage.parquet            # one file per table, all months
+    usage.csv
+  kaggle/
+    complete-2026/           # one Kaggle dataset per year
+      usage/2026-09.parquet  # hard link to data/complete/2026-09/usage.parquet
+      pokemon.parquet
+      formats.parquet        # the months of that year
+      files.parquet          # which table exists for which month
+      dataset-metadata.json
+    lite/
+```
+
+A new version of a Kaggle dataset has to send every file again.
+Cut by year, only the current year (2 to 4 GB) is uploaded each month, and the past years are left alone.
 
 ## Architecture
 
@@ -53,17 +158,13 @@ src/smogon_dataset/
   normalize.py     # canonical tables -> tables of the Complete dataset
   validate.py      # pandera schemas and rules every Complete table must pass
   lite.py          # Complete tables -> Lite dataset (Parquet + CSV)
-  publish.py       # Kaggle layout of the Complete dataset
+  publish.py       # Kaggle layout, one dataset per year for the Complete
 scripts/           # one-off tools (fixture download)
 tests/
   fixtures/<month> # real sample files from each era, laid out like the server
-data/              # not versioned
-  raw/             # cache of smogon.com/stats, files kept gzipped as served
-  interim/         # canonical tables, one folder per month
-  complete/        # Complete dataset
-  lite/            # Lite dataset
+data/              # not versioned, layout in "Data flow"
 notebooks/         # exploration and the Kaggle starter notebook
-.github/workflows/ # CI + monthly update
+.github/workflows/ # CI + monthly update (placeholder for now)
 ```
 
 ## Source and attribution
@@ -71,3 +172,7 @@ notebooks/         # exploration and the Kaggle starter notebook
 Usage stats are published by [Smogon](https://www.smogon.com/stats/) and computed from
 [Pokémon Showdown](https://pokemonshowdown.com/) battles. Pokémon data (types, base stats) comes from
 [smogon/pokemon-showdown](https://github.com/smogon/pokemon-showdown).
+
+## License
+
+The code is under the [MIT license](LICENSE). The datasets are published under CC BY 4.0.
