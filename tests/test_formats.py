@@ -116,3 +116,45 @@ def test_read_battles_finds_the_formats_nobody_played(tmp_path: Path) -> None:
     )
 
     assert sorted(read_battles(tmp_path).rows()) == [("2026-08", "gen5lc", 0), ("2026-08", "gen9ou", 7)]
+
+
+def _series(inventory: dict[str, dict[str, list[int]]], battles: dict[str, int]) -> dict[str, str | None]:
+    played = pl.DataFrame(
+        {"month": ["2017-01"] * len(battles), "format": list(battles), "battles": list(battles.values())}
+    )
+    table = build_formats(_inventory(inventory), played)
+    return dict(zip(table["format"], table["lite_series"], strict=True))
+
+
+def test_trial_names_of_a_young_generation_belong_to_the_tier() -> None:
+    series = _series(
+        {"2017-01": {"ou": HIGH, "gen7pokebankou": HIGH, "gen7prebankou": LOW, "gen7rualpha": LOW, "ru": LOW}},
+        {"ou": 400, "gen7pokebankou": 1100, "gen7prebankou": 800, "gen7rualpha": 99, "ru": 3},
+    )
+    assert series == {
+        "ou": "gen6ou",
+        # Two names for the OU of gen 7 that month: the most played one is the series.
+        "gen7pokebankou": "gen7ou",
+        "gen7prebankou": None,
+        "gen7rualpha": "ru",
+        "ru": None,
+    }
+
+
+def test_the_old_generation_carries_a_tier_the_new_one_has_not_opened() -> None:
+    series = _series(
+        {"2017-01": {"ou": HIGH, "gen7ou": HIGH, "nu": LOW, "gen5nu": LOW, "ubers": LOW, "gen7ubers": LOW}},
+        {"ou": 400, "gen7ou": 1100, "nu": 13, "gen5nu": 50, "ubers": 90, "gen7ubers": 60},
+    )
+    assert series["nu"] == "nu"
+    assert series["gen5nu"] is None
+    # Once the new generation has the tier, it takes over even while the old one is busier.
+    assert (series["gen7ubers"], series["ubers"]) == ("ubers", None)
+
+
+def test_a_ladder_closed_within_the_month_does_not_take_the_series() -> None:
+    series = _series(
+        {"2019-11": {"gen8ou": HIGH, "gen7anythinggoes": LOW, "gen8anythinggoes": LOW}},
+        {"gen8ou": 5000, "gen7anythinggoes": 450, "gen8anythinggoes": 41},
+    )
+    assert (series["gen7anythinggoes"], series["gen8anythinggoes"]) == ("anythinggoes", None)

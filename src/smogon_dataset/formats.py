@@ -15,6 +15,14 @@ LITE_TIERS = ["ubers", "uu", "ru", "nu", "doublesou", "nationaldex", "monotype",
 # Doubles OU was called Smogon Doubles until 2015-03.
 FAMILY_RENAMES = {"smogondoubles": "doublesou"}
 
+# A young generation plays its tiers under trial names: gen7pokebankou and gen7prebankou
+# before Pokémon Bank settled, gen7rualpha then gen7rubeta, gen8nationaldexbeta.
+_TIER_VARIANT = r"^(pokebank|prebank)|(alpha|beta)$"
+
+# Smogon opened this ladder with gen 8, closed it within the month, and only brought it back in 2020-10.
+# Anything Goes stayed a gen 7 tier in between.
+CLOSED_EARLY = {"2019-11": "gen8anythinggoes"}
+
 # Generations have one digit so far. "gen10ou" will need a decision: read this way it is gen 1.
 _GEN_PREFIX = r"^gen(\d)"
 
@@ -48,9 +56,24 @@ def build_formats(inventory: pl.DataFrame, battles: pl.DataFrame) -> pl.DataFram
     """
     family = pl.col("format_id").str.replace(_GEN_PREFIX, "").replace(FAMILY_RENAMES)
     # The 1695 cutoff goes to the OU of the generation being played, which is how we know which one it is.
-    current_gen = pl.col("gen").filter((pl.col("family") == "ou") & (pl.col("standard_cutoff") == 1695)).max()
+    current_gen = pl.col("gen").filter((pl.col("tier") == "ou") & (pl.col("standard_cutoff") == 1695)).max()
     is_vgc = pl.col("family").str.contains("vgc")
-    top_vgc_battles = pl.col("battles").filter(is_vgc).max().over("month")
+    closed_early = pl.col("month").replace_strict(CLOSED_EARLY, default=None) == pl.col("format")
+    series = (
+        pl.when(closed_early.fill_null(False))
+        .then(None)
+        .when(pl.col("tier") == "ou")
+        .then(pl.format("gen{}ou", "gen"))
+        .when(pl.col("tier").is_in(LITE_TIERS) & (pl.col("gen") <= pl.col("current_gen")))
+        .then("tier")
+        .when(is_vgc)
+        .then(pl.lit("vgc"))
+    )
+    # A series holds one format a month. A tier takes its latest generation: a new one only
+    # opens its lower tiers after a few months, and the old ones carry the series until then.
+    # After that, and for VGC, the most played wins.
+    latest_gen = pl.when(is_vgc).then(0).otherwise("gen")
+    is_the_one = pl.struct(latest_gen, pl.col("battles").fill_null(0)).rank("ordinal", descending=True) == 1
     return (
         standard_cutoffs(inventory)
         .rename({"cutoff": "standard_cutoff"})
@@ -62,18 +85,13 @@ def build_formats(inventory: pl.DataFrame, battles: pl.DataFrame) -> pl.DataFram
             .otherwise(pl.lit("gen6") + pl.col("format")),
         )
         .with_columns(gen=pl.col("format_id").str.extract(_GEN_PREFIX).cast(pl.Int32), family=family)
+        .with_columns(tier=pl.col("family").str.replace_all(_TIER_VARIANT, ""))
         .with_columns(
             current_gen=current_gen.over("month"),
             is_special_month=pl.col("month").str.len_chars() > len("2020-11"),
         )
-        .with_columns(
-            lite_series=pl.when(pl.col("family") == "ou")
-            .then("format_id")
-            .when(pl.col("family").is_in(LITE_TIERS) & (pl.col("gen") == pl.col("current_gen")))
-            .then("family")
-            .when(is_vgc & (pl.col("battles") == top_vgc_battles))
-            .then(pl.lit("vgc"))
-        )
+        .with_columns(series=series)
+        .with_columns(lite_series=pl.when(is_the_one.over("month", "series")).then("series"))
         .select(
             "month",
             "format",
