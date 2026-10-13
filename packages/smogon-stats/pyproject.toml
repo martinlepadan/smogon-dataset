@@ -1,0 +1,19 @@
+[project]
+name = "smogon-stats"
+version = "0.1.0"
+description = "Load the Smogon usage stats datasets published on Kaggle as polars LazyFrames."
+readme = "README.md"
+authors = [
+    { name = "Martin", email = "martin.lepadanc@gmail.com" }
+]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = [
+    "kagglehub>=1.0.2",
+    "polars>=1.0.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.24,<0.10.0"]
+build-backend = "uv_build"

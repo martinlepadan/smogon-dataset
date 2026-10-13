@@ -5,6 +5,8 @@ description = "Pipeline ETL des statistiques d'usage Smogon (2014 → aujourd'hu
 authors = [
     { name = "Martin", email = "martin.lepadanc@gmail.com" }
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
@@ -31,6 +33,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.16.10",
+    "smogon-stats",
 ]
 notebook = [
     "ipykernel>=7.4.0",
@@ -40,10 +43,16 @@ notebook = [
 [tool.uv]
 default-groups = ["dev"]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+smogon-stats = { workspace = true }
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "packages/smogon-stats/src"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "PTH", "PL", "N"]
@@ -55,7 +64,7 @@ ignore = ["PLR2004"]  # nombres magiques : seuils et constantes métier assumés
 "src/smogon_dataset/validate.py" = ["RUF012"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "packages/smogon-stats/tests"]
 addopts = ["-ra", "--strict-markers"]
 markers = [
     "network: test qui interroge smogon.com (exclu par défaut : -m 'not network')",
@@ -69,8 +78,8 @@ branch = true
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src"]
+files = ["src", "packages/smogon-stats/src"]
 
 [[tool.mypy.overrides]]
-module = ["kaggle.*", "pyarrow.*"]
+module = ["kaggle.*", "kagglehub.*", "pyarrow.*"]
 ignore_missing_imports = true
