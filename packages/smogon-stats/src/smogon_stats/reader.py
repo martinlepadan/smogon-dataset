@@ -3,6 +3,7 @@ from collections.abc import Collection, Iterable
 from datetime import date, timedelta
 from functools import cache
 from pathlib import Path
+from typing import Literal
 
 import kagglehub
 import polars as pl
@@ -31,29 +32,69 @@ def _mounted(dataset: str) -> Path:
     return Path(kagglehub.dataset_download(dataset))
 
 
-def load(
+def load(  # noqa: PLR0913
     table: str,
     *,
     years: Iterable[int] | None = None,
     months: Collection[str] | None = None,
     formats: Collection[str] | None = None,
-    cutoffs: Collection[int] | None = None,
+    family: str | None = None,
+    cutoffs: Collection[int] | Literal["standard"] | None = None,
+    include_special_months: bool = False,
 ) -> pl.LazyFrame:
-    """Scan one table of the Complete dataset over `years`, or over `months` like "2024-01"."""
+    """Scan one table of the Complete dataset over `years`, or over `months` like "2024-01".
+
+    `family` keeps a tier under all the names it had ("lc": lc, gen7lc, gen8lc...), `cutoffs="standard"`
+    the standard cutoff of each format. Partial months like 2020-11-H1 repeat battles of the whole
+    month: they are left out unless named in `months` or `include_special_months` is set.
+    """
     years = _checked_years(years, months)
 
     if table == "pokemon":
+        if not (formats is None and family is None and cutoffs is None):
+            raise ValueError("'pokemon' has no format or cutoff to filter on")
         # Each year ships the full pokedex of its last publication, so the newest one covers the others.
         pokemon_file = download(COMPLETE.format(year=years[-1]), "pokemon.parquet")
-        return _filtered(pl.scan_parquet(pokemon_file), None, formats, cutoffs)
+        return pl.scan_parquet(pokemon_file)
     if table == "formats":
+        if cutoffs is not None:
+            raise ValueError("'formats' has no cutoff to filter on: its standard_cutoff column names the standard one")
         format_files = [download(COMPLETE.format(year=year), "formats.parquet") for year in years]
-        return _filtered(pl.scan_parquet(format_files), months, formats, cutoffs)
+        formats_lf = _filtered(pl.scan_parquet(format_files), months, formats, None)
+        if family is not None:
+            formats_lf = formats_lf.filter(pl.col("family") == family)
+        if months is None and not include_special_months:
+            formats_lf = formats_lf.filter(~pl.col("is_special_month"))
+        return formats_lf
     if table == "files":
         # The index of what each year holds: one row per table and month.
         indexes = [download(COMPLETE.format(year=year), "files.parquet") for year in years]
         return _filtered(pl.scan_parquet(indexes), months, None, None)
 
+    month_files = _month_files(table, years, months, include_special_months)
+    table_lf = _filtered(pl.scan_parquet(month_files), None, formats, None if cutoffs == "standard" else cutoffs)
+    if family is None and cutoffs != "standard":
+        return table_lf
+
+    year_formats = pl.concat(pl.read_parquet(download(COMPLETE.format(year=year), "formats.parquet")) for year in years)
+    if family is not None:
+        family_formats = year_formats.filter(pl.col("family") == family)["format"].unique().sort().to_list()
+        if not family_formats:
+            raise ValueError(
+                f"no format of family {family!r} in {years[0]}..{years[-1]}; "
+                'the `family` column of load("formats") lists them'
+            )
+        # A format name never changes family, so filtering on names is exact and prunes the parquet scan.
+        table_lf = table_lf.filter(pl.col("format").is_in(family_formats))
+    if cutoffs == "standard":
+        standard_cutoffs = year_formats.lazy().select("month", "format", pl.col("standard_cutoff").alias("cutoff"))
+        table_lf = table_lf.join(standard_cutoffs, on=["month", "format", "cutoff"], how="semi")
+    return table_lf
+
+
+def _month_files(
+    table: str, years: list[int], months: Collection[str] | None, include_special_months: bool
+) -> list[Path]:
     published = pl.concat(pl.read_parquet(download(COMPLETE.format(year=year), "files.parquet")) for year in years)
     table_months = published.filter(pl.col("table") == table)["month"].sort().to_list()
     if not table_months:
@@ -67,17 +108,30 @@ def load(
                 f"{table!r} has no data for {absent}; months it has in {years[0]}..{years[-1]}: {table_months}"
             )
         table_months = [month for month in table_months if month in months]
+    elif not include_special_months:
+        # A special month is the only kind with a suffix after YYYY-MM; no need to fetch `formats` to tell.
+        table_months = [month for month in table_months if len(month) == 7]
 
     # 2020-11-H1 or 2023-09-DLC1 live in the dataset of their first four characters.
-    month_files = [download(COMPLETE.format(year=month[:4]), f"{table}/{month}.parquet") for month in table_months]
-    return _filtered(pl.scan_parquet(month_files), None, formats, cutoffs)
+    return [download(COMPLETE.format(year=month[:4]), f"{table}/{month}.parquet") for month in table_months]
 
 
-def load_lite(table: str, *, formats: Collection[str] | None = None) -> pl.LazyFrame:
+def load_lite(
+    table: str,
+    *,
+    years: Iterable[int] | None = None,
+    months: Collection[str] | None = None,
+    formats: Collection[str] | None = None,
+) -> pl.LazyFrame:
     """Scan one table of the Lite dataset."""
     if table not in LITE_TABLES:
         raise ValueError(f"no {table!r} table in the Lite dataset; it has: {', '.join(LITE_TABLES)}")
-    return _filtered(pl.scan_parquet(download(LITE, f"{table}.parquet")), None, formats, None)
+    if years is not None and months is not None:
+        raise ValueError("pass years or months, not both")
+    table_lf = _filtered(pl.scan_parquet(download(LITE, f"{table}.parquet")), months, formats, None)
+    if years is not None:
+        table_lf = table_lf.filter(pl.col("month").str.slice(0, 4).is_in([str(year) for year in years]))
+    return table_lf
 
 
 def _latest_year() -> int:
