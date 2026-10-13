@@ -21,7 +21,7 @@ from smogon_dataset.inventory import INVENTORY_PATH, build_inventory
 from smogon_dataset.lite import build_lite
 from smogon_dataset.normalize import UnknownPokemonError, is_normalized, normalize_month
 from smogon_dataset.pokedex import POKEMON_PATH, build_pokemon, download_pokedex, unknown_names
-from smogon_dataset.publish import KAGGLE_COMPLETE_DIR, stage_complete
+from smogon_dataset.publish import KAGGLE_DIR, stage_complete, stage_lite, write_cards
 from smogon_dataset.sync import MonthFailedError, is_synced, month_files, sync_month
 from smogon_dataset.validate import ValidationError, check_formats, check_pokemon
 
@@ -123,9 +123,11 @@ def lite() -> None:
 
 @app.command()
 def stage() -> None:
-    """Lay the Complete tables out for Kaggle, one folder per table: data/kaggle/complete/<table>/<month>.parquet."""
-    stage_complete()
-    typer.echo(f"{sum(1 for _ in KAGGLE_COMPLETE_DIR.rglob('*.parquet'))} files -> {KAGGLE_COMPLETE_DIR}")
+    """Lay both datasets out for Kaggle, with their cards: data/kaggle/lite/ and data/kaggle/complete-<year>/."""
+    year_dirs = stage_complete()
+    stage_lite()
+    write_cards()
+    typer.echo(f"lite + {len(year_dirs)} yearly datasets, {year_dirs[0].name} to {year_dirs[-1].name} -> {KAGGLE_DIR}")
 
 
 @app.command()
