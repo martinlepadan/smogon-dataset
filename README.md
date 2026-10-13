@@ -6,7 +6,33 @@ ETL pipeline that turns the Pokemon Showdown usage stats archive
 - **Lite**: the most played formats, standard rating cutoff only, CSV + Parquet.
 - **Complete**: every format, every cutoff, every section, in Parquet. One dataset per year.
 
-> Status: WIP. The pipeline runs up to the Kaggle layout. Publishing and the monthly automatic update are not built yet.
+Both are public on Kaggle:
+
+- Lite: [smogon-usage-stats-lite](https://www.kaggle.com/datasets/martinlepadan/smogon-usage-stats-lite)
+- Complete: `smogon-usage-stats-complete-<year>`, from [2014](https://www.kaggle.com/datasets/martinlepadan/smogon-usage-stats-complete-2014) to [2026](https://www.kaggle.com/datasets/martinlepadan/smogon-usage-stats-complete-2026)
+- Python package: [smogon-stats](https://pypi.org/project/smogon-stats/) on PyPI, source in [`packages/smogon-stats`](packages/smogon-stats)
+- Notebooks: [Lite, getting started](https://www.kaggle.com/code/martinlepadan/smogon-usage-stats-lite-getting-started) and [Complete, how to](https://www.kaggle.com/code/martinlepadan/smogon-usage-stats-complete-how-to), sources in [`notebooks/`](notebooks)
+
+> Status: the datasets, the package and the notebooks are published. A monthly GitHub Actions run adds each new month.
+
+## Use the data
+
+```bash
+pip install smogon-stats
+```
+
+```python
+import smogon_stats as ss
+
+lite_usage = ss.load_lite("usage", formats=["gen9ou"])
+usage = ss.load("usage", years=[2019, 2020], formats=["gen8ou"], cutoffs=[1825])
+moves = ss.load("moves", months=["2024-08"])
+```
+
+`load_lite` reads the Lite dataset, `load` the Complete ones, across as many years as asked.
+Both return polars LazyFrames and download only the files the query needs. No Kaggle account is required.
+In a Kaggle notebook, attach the datasets you read to the notebook first.
+The tables and their columns are described on the Kaggle pages.
 
 ## Setup
 
@@ -59,7 +85,7 @@ flowchart TD
 
 `inventory` lists every file on the server, and `sync` works from that list: it downloads one month, parses it, then deletes the download.
 The archive is 54 GB gzipped, so the disk never holds more than one raw month.
-The upload to Kaggle and the monthly GitHub Actions run are planned, not built.
+The folders of `data/kaggle` are what is uploaded to Kaggle. Each month, `smogon-dataset update --publish` does it for the new month alone, from a GitHub Actions run.
 
 Steps 3 and 4 build the two lookup tables that the later steps read.
 
@@ -159,12 +185,15 @@ src/smogon_dataset/
   validate.py      # pandera schemas and rules every Complete table must pass
   lite.py          # Complete tables -> Lite dataset (Parquet + CSV)
   publish.py       # Kaggle layout, one dataset per year for the Complete
-scripts/           # one-off tools (fixture download)
+  cards.py         # text and column descriptions of the Kaggle pages
+packages/
+  smogon-stats/    # the reader published on PyPI
+scripts/           # one-off tools (fixture download, Kaggle covers)
 tests/
   fixtures/<month> # real sample files from each era, laid out like the server
 data/              # not versioned, layout in "Data flow"
-notebooks/         # exploration and the Kaggle starter notebook
-.github/workflows/ # CI + monthly update (placeholder for now)
+notebooks/         # sources of the two Kaggle notebooks
+.github/workflows/ # CI + monthly update
 ```
 
 ## Source and attribution
@@ -175,4 +204,4 @@ Usage stats are published by [Smogon](https://www.smogon.com/stats/) and compute
 
 ## License
 
-The code is under the [MIT license](LICENSE). The datasets are published under CC BY 4.0.
+The code, `smogon-stats` included, is under the [MIT license](LICENSE). The datasets are published under CC BY 4.0.

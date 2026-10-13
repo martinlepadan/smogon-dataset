@@ -216,3 +216,24 @@ def test_cards_link_to_each_other_and_a_year_describes_the_tables_it_has(tmp_pat
     assert "### mega" not in _card(staged / "complete-2021")["description"]
     assert "smogon.com/stats" in year
     assert "not affiliated" in year
+
+
+def test_cards_show_how_to_read_the_dataset_with_the_package(tmp_path: Path) -> None:
+    complete = _complete(tmp_path, {"2020-11": ["usage"], "2021-01": ["usage"]})
+    staged = tmp_path / "kaggle"
+    stage_complete(complete, tmp_path / "pokemon.parquet", tmp_path / "formats.parquet", staged)
+    stage_lite(_lite(tmp_path), staged)
+
+    write_cards(staged)
+
+    notebooks = "https://www.kaggle.com/code/martinlepadan/smogon-usage-stats"
+    lite = _card(staged / "lite")["description"]
+    assert "pip install smogon-stats" in lite
+    assert 'ss.load_lite("usage"' in lite
+    assert f"{notebooks}-lite-getting-started" in lite
+
+    year = _card(staged / "complete-2020")["description"]
+    assert "pip install smogon-stats" in year
+    assert 'ss.load("usage", years=[2020]' in year
+    assert 'ss.load("moves", months=["2020-11"])' in year
+    assert f"{notebooks}-complete-how-to" in year

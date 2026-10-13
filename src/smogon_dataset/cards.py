@@ -7,7 +7,6 @@ import polars as pl
 from smogon_dataset.columns import COLUMNS, KEYS, TABLES, lite_columns
 
 OWNER = "martinlepadan"
-# Not decided yet. "other" is Kaggle's "see the description".
 LICENSE = "CC-BY-4.0"
 SOURCES = (
     "Monthly usage statistics published by Smogon at https://www.smogon.com/stats/, computed from Pokémon Showdown "
@@ -53,6 +52,14 @@ Pokémon with negligible usage. About half the rows of `usage` have no match in 
 - Tera types are only published from 2024-08.
 - Ids follow today's Pokémon Showdown: the few Pokémon renamed since the old files carry their current id."""
 
+_PACKAGE = """\
+The [smogon-stats](https://pypi.org/project/smogon-stats/) package downloads the files a query needs, without a \
+Kaggle account, and returns polars LazyFrames:
+
+```
+pip install smogon-stats
+```"""
+
 _LITE = """\
 Monthly usage statistics of competitive Pokémon since November 2014: how often each Pokémon is used in a format, \
 and with which abilities, items, moves and Tera types.
@@ -63,6 +70,21 @@ table, in CSV and in Parquet. The rest is in the Complete datasets, linked at th
 ## Source
 
 {source}
+
+## Read it in Python
+
+{package}
+
+```python
+import smogon_stats as ss
+
+usage = ss.load_lite("usage", formats=["gen9ou"]).collect()
+moves = ss.load_lite("moves", formats=["gen9ou"]).collect()
+```
+
+In a Kaggle notebook, attach this dataset to the notebook first. The \
+[getting started notebook](https://www.kaggle.com/code/martinlepadan/smogon-usage-stats-lite-getting-started) \
+goes through the tables. The CSV files open in anything else.
 
 ## What is in it
 
@@ -118,7 +140,22 @@ A table is a folder with one file per month: `usage/{month}.parquet`. `files.par
 dataset, one row per `table` and `month`. A table has no file for a month where it is empty. `pokemon.parquet` \
 and `formats.parquet` sit at the root.
 
-`kagglehub` downloads one file at a time, without a Kaggle account:
+## Read it in Python
+
+{package}
+
+```python
+import smogon_stats as ss
+
+usage = ss.load("usage", years=[{year}], cutoffs=[0]).collect()
+moves = ss.load("moves", months=["{month}"]).collect()
+```
+
+`years` takes several years and reads each one from its own dataset, so a table can be followed across the \
+whole archive. In a Kaggle notebook, attach the years you read to the notebook first. The \
+[how-to notebook](https://www.kaggle.com/code/martinlepadan/smogon-usage-stats-complete-how-to) shows the rest.
+
+Without the package, `kagglehub` downloads one file at a time:
 
 ```python
 import kagglehub
@@ -175,7 +212,9 @@ def lite_card(schemas: Schemas, years: list[str]) -> dict[str, object]:
         "keywords": KEYWORDS,
         "userSpecifiedSources": SOURCES,
         "expectedUpdateFrequency": "monthly",
-        "description": _LITE.format(source=_SOURCE, keys=_KEYS, quirks=_QUIRKS, years=_year_links(years)),
+        "description": _LITE.format(
+            source=_SOURCE, package=_PACKAGE, keys=_KEYS, quirks=_QUIRKS, years=_year_links(years)
+        ),
         "resources": [
             _resource(f"{table}{suffix}", table, schema, lite_columns(table))
             for table, schema in schemas.items()
@@ -192,6 +231,7 @@ def complete_card(year: str, years: list[str], month: str, schemas: Schemas) -> 
         years=_year_links([other for other in years if other != year]),
         lite_url=_url(LITE_SLUG),
         source=_SOURCE,
+        package=_PACKAGE,
         month=month,
         handle=f"{OWNER}/{slug}",
         keys=_KEYS,
