@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import pytest
+
 from smogon_dataset.listing import Entry, parse_listing
 
 LISTING = """<html>
@@ -19,3 +21,9 @@ def test_parse_listing_skips_parent_link() -> None:
         Entry("gen1nu-0.txt", is_dir=False, size=1802, modified=datetime(2026, 10, 1, 14, 40)),
         Entry("gen9monotype-monobug-1630.txt", is_dir=False, size=15591, modified=datetime(2026, 10, 1, 14, 40)),
     ]
+
+
+@pytest.mark.parametrize("href", ["../../etc/", "..%2Fx.txt", "/2020-11/", ".hidden"])
+def test_parse_listing_refuses_a_name_that_is_not_plain(href: str) -> None:
+    with pytest.raises(ValueError, match="not a plain file or folder name"):
+        parse_listing(f'<a href="{href}">x</a>   01-Dec-2020 02:11   -')
