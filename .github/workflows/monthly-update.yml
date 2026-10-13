@@ -1,12 +1,18 @@
-# Monthly update of the dataset
 name: Monthly update
 
 on:
+  schedule:
+    # Smogon publishes a month in the first days of the next one. A run that finds nothing new stops there.
+    - cron: "17 6 2-8,15 * *"
   workflow_dispatch:
     inputs:
       month:
-        description: "Mois à traiter (YYYY-MM). Vide = dernier mois publié."
+        description: "Month to add (2026-10). Empty: the newest one Kaggle does not have."
         required: false
+      publish:
+        description: "Upload to Kaggle. Untick to stop once both datasets are rebuilt and checked."
+        type: boolean
+        default: true
 
 concurrency:
   group: monthly-update
@@ -15,16 +21,20 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # One request a second to smogon.com: a month of 1300 files takes about half an hour to download.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - run: uv sync --locked --no-dev
-      # TODO : détecter le nouveau mois -> télécharger -> parser -> valider -> publier Lite + Complete.
-      # Échec : toute erreur de validation fait échouer le job, rien n'est publié.
-      - run: uv run smogon-dataset version
+      - run: df -h .
+      # MONTH is left unquoted so that an empty input is no argument at all.
+      - run: uv run smogon-dataset update $PUBLISH $MONTH
         env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          MONTH: ${{ inputs.month }}
+          PUBLISH: ${{ inputs.publish == false && '--no-publish' || '--publish' }}
+      - if: always()
+        run: df -h . && du -sh data/* data/update/* 2>/dev/null || true

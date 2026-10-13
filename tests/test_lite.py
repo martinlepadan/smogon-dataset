@@ -101,3 +101,40 @@ def test_lite_fails_when_a_series_has_no_usage(tmp_path: Path) -> None:
         build_lite(complete, POKEMON, _formats([("2020-11", "gen8ou", 1695, "gen8ou")]), tmp_path / "lite")
 
     assert list((tmp_path / "lite").iterdir()) == []
+
+
+def test_lite_takes_the_months_it_cannot_derive_from_a_published_lite(tmp_path: Path) -> None:
+    complete = tmp_path / "complete"
+    _complete_month(complete, "2020-11", [("gen8ou", 1695)])
+    _complete_month(complete, "2020-12", [("gen8ou", 1695), ("gen8ubers", 1630)])
+    formats = _formats(
+        [
+            ("2020-11", "gen8ou", 1695, "gen8ou"),
+            ("2020-12", "gen8ou", 1695, "gen8ou"),
+            ("2020-12", "gen8ubers", 1630, "ubers"),
+        ]
+    )
+    build_lite(complete, POKEMON, formats, tmp_path / "published")
+
+    # Only 2020-12 is at hand, this time without its ubers, and 2021-01 is new.
+    later = tmp_path / "later"
+    _complete_month(later, "2020-12", [("gen8ou", 1695)])
+    _complete_month(later, "2021-01", [("gen8ou", 1695), ("gen8lc", 1630)])
+    later_formats = _formats(
+        [
+            ("2020-12", "gen8ou", 1695, "gen8ou"),
+            ("2021-01", "gen8ou", 1695, "gen8ou"),
+            ("2021-01", "gen8lc", 1630, None),
+        ]
+    )
+
+    build_lite(later, POKEMON, later_formats, tmp_path / "lite", tmp_path / "published")
+
+    kept = [("2020-11", "gen8ou"), ("2020-12", "gen8ou"), ("2021-01", "gen8ou")]
+    for name in TABLES:
+        table = pl.read_parquet(tmp_path / f"lite/{name}.parquet")
+        assert table.select("month", "format").rows() == kept
+        published = pl.read_parquet(tmp_path / f"published/{name}.parquet")
+        assert table.filter(month="2020-11").equals(published.filter(month="2020-11"))
+    assert pl.read_parquet(tmp_path / "lite/formats.parquet").select("month", "format").rows() == kept
+    assert pl.read_csv(tmp_path / "lite/moves.csv").select("month", "format").rows() == kept

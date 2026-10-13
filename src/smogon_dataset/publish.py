@@ -85,16 +85,21 @@ def stage_lite(lite_dir: Path = LITE_DIR, out_dir: Path = KAGGLE_DIR) -> Path:
     return staged_dir
 
 
-def write_cards(out_dir: Path = KAGGLE_DIR) -> None:
-    """Write dataset-metadata.json in the staged Lite folder and in every staged year."""
+def write_cards(out_dir: Path = KAGGLE_DIR, years: list[str] | None = None) -> None:
+    """Write dataset-metadata.json in the staged Lite folder and in every staged year.
+
+    `years` are the Complete datasets the cards link to. By default the staged ones, but
+    the monthly update only stages the year it adds a month to.
+    """
     year_dirs = sorted(out_dir.glob("complete-*"))
-    years = [year_dir.name.removeprefix("complete-") for year_dir in year_dirs]
+    staged_years = [year_dir.name.removeprefix("complete-") for year_dir in year_dirs]
+    years = years or staged_years
 
     lite_dir = out_dir / "lite"
     lite_schemas = {table: pl.read_parquet_schema(lite_dir / f"{table}.parquet") for table in LITE_TABLES}
     _write_card(lite_dir, lite_card(lite_schemas, years))
 
-    for year_dir, year in zip(year_dirs, years, strict=True):
+    for year_dir, year in zip(year_dirs, staged_years, strict=True):
         # The first file of each table: all its months have the same columns, stage_complete saw to it.
         first_month = pl.read_parquet(year_dir / "files.parquet").group_by("table", maintain_order=True).first()
         schemas = {table: pl.read_parquet_schema(year_dir / f"{table}.parquet") for table in ROOT_TABLES}

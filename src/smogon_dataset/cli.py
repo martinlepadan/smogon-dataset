@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import UTC, datetime
 from typing import Annotated
 
 import polars as pl
@@ -17,12 +18,21 @@ from smogon_dataset import __version__
 from smogon_dataset.config import COMPLETE_DIR, INTERIM_DIR, LITE_DIR, REQUEST_DELAY_S
 from smogon_dataset.fetch import SmogonClient
 from smogon_dataset.formats import FORMATS_PATH, build_formats, read_battles
-from smogon_dataset.inventory import INVENTORY_PATH, build_inventory
+from smogon_dataset.inventory import INVENTORY_PATH, build_inventory, list_months
+from smogon_dataset.kaggle_api import KaggleDatasets
 from smogon_dataset.lite import build_lite
 from smogon_dataset.normalize import UnknownPokemonError, is_normalized, normalize_month
 from smogon_dataset.pokedex import POKEMON_PATH, build_pokemon, download_pokedex, unknown_names
 from smogon_dataset.publish import KAGGLE_DIR, stage_complete, stage_lite, write_cards
 from smogon_dataset.sync import MonthFailedError, is_synced, month_files, sync_month
+from smogon_dataset.update import (
+    UPDATE_DIR,
+    build_update,
+    fetch_published,
+    find_month,
+    is_settled,
+    publish_update,
+)
 from smogon_dataset.validate import ValidationError, check_formats, check_pokemon
 
 app = typer.Typer(help="Smogon usage stats pipeline.", no_args_is_help=True)
@@ -178,3 +188,48 @@ def sync(
             if len(failure.errors) > 5:
                 typer.echo(f"    ... {len(failure.errors) - 5} more in data/interim/{failure.month}.errors.txt")
         raise typer.Exit(1)
+
+
+@app.command()
+def update(
+    month: Annotated[
+        str | None, typer.Argument(help="Month to add, e.g. 2026-10. Default: the newest one Kaggle lacks.")
+    ] = None,
+    publish: Annotated[
+        bool, typer.Option(help="Upload to Kaggle. Without it the run stops once data/update/kaggle is ready.")
+    ] = False,
+) -> None:
+    """Add one month to the datasets on Kaggle, starting from what Kaggle has. Works in data/update/.
+
+    Downloads the month from smogon.com, the Lite and the year of the month from Kaggle,
+    and rebuilds both with the month in. Nothing is uploaded unless every check passes.
+    """
+    kaggle = KaggleDatasets()
+    interim_dir = UPDATE_DIR / "interim"
+    with SmogonClient() as client:
+        server_months = list_months(client, refresh=True)
+        month = find_month(server_months, kaggle, month)
+        if month is None:
+            typer.echo("nothing to add: Kaggle has it already")
+            return
+        month_inventory = build_inventory(client, [month])
+        # The listing dates are UTC.
+        if not is_settled(month_inventory, datetime.now(UTC).replace(tzinfo=None)):
+            typer.echo(f"{month}: files less than a day old, the folder may still be filling up. Not published.")
+            return
+        if not is_synced(month, interim_dir):
+            try:
+                sync_month(client, month_files(month_inventory, month), out_dir=interim_dir)
+            except MonthFailedError as failure:
+                for error in failure.errors:
+                    typer.echo(error)
+                raise
+
+    pokemon_table = build_pokemon(json.loads(download_pokedex().read_text()))
+    fetch_published(kaggle, month)
+    build_update(month, month_inventory, pokemon_table, sorted({name[:4] for name in server_months}))
+    if not publish:
+        typer.echo(f"{month} ready in {UPDATE_DIR / 'kaggle'}, not published")
+        return
+    publish_update(kaggle, month)
+    typer.echo(f"{month} published")

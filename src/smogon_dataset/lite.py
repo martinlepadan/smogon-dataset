@@ -29,10 +29,27 @@ def lite_formats(formats: pl.DataFrame) -> pl.DataFrame:
     return formats.filter(pl.col("lite_series").is_not_null() & ~pl.col("is_special_month"))
 
 
-def build_lite(complete_dir: Path, pokemon: pl.DataFrame, formats: pl.DataFrame, out_dir: Path = LITE_DIR) -> None:
-    """Write <out_dir>/<table>.parquet and .csv, one file per table over every normalized month."""
+def build_lite(
+    complete_dir: Path,
+    pokemon: pl.DataFrame,
+    formats: pl.DataFrame,
+    out_dir: Path = LITE_DIR,
+    published_dir: Path | None = None,
+) -> None:
+    """Write <out_dir>/<table>.parquet and .csv, one file per table over every normalized month.
+
+    `published_dir` holds the Parquet files of a Lite built earlier. Its months come back
+    as they are, except those in `complete_dir`, which are derived again: this is how the
+    monthly update adds a month without the rest of the Complete at hand.
+    """
     normalized = [path.name for path in complete_dir.iterdir() if path.is_dir() and path.suffix != ".part"]
-    kept = lite_formats(formats).filter(pl.col("month").is_in(normalized)).sort("month", "format")
+    kept = lite_formats(formats).filter(pl.col("month").is_in(normalized))
+    published: dict[str, pl.LazyFrame] = {}
+    if published_dir:
+        carried = pl.read_parquet(published_dir / "formats.parquet").filter(~pl.col("month").is_in(normalized))
+        kept = pl.concat([carried, kept])
+        published = {name: pl.scan_parquet(published_dir / f"{name}.parquet") for name in TABLES}
+    kept = kept.sort("month", "format")
 
     tmp = out_dir.with_name(out_dir.name + ".part")
     shutil.rmtree(tmp, ignore_errors=True)
@@ -42,7 +59,11 @@ def build_lite(complete_dir: Path, pokemon: pl.DataFrame, formats: pl.DataFrame,
     for name in TABLES:
         # One month at a time, or the whole Complete goes through memory.
         months = (
-            _lite_rows(complete_dir / str(month), name, month_formats).to_arrow()
+            (
+                _lite_rows(complete_dir / str(month), name, month_formats)
+                if month in normalized
+                else published[name].filter(pl.col("month") == month).collect()
+            ).to_arrow()
             for (month,), month_formats in kept.group_by("month", maintain_order=True)
         )
         first = next(months)
