@@ -1,6 +1,7 @@
 import os
 from collections.abc import Collection, Iterable
 from datetime import date, timedelta
+from functools import cache
 from pathlib import Path
 
 import kagglehub
@@ -17,8 +18,17 @@ def download(dataset: str, file: str) -> Path:
     # With a copy of the datasets on disk, laid out as on Kaggle (lite/, complete-2024/...), nothing is fetched.
     if local_copy := os.environ.get("SMOGON_STATS_DIR"):
         return Path(local_copy) / dataset.removeprefix(DATASET_PREFIX) / file
+    if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+        return _mounted(dataset) / file
     # One file per call: kagglehub answers 404 on a folder, and a whole year weighs 2 to 3 GB.
     return Path(kagglehub.dataset_download(dataset, path=file))
+
+
+@cache
+def _mounted(dataset: str) -> Path:
+    # A Kaggle notebook mounts a dataset instead of downloading it, and refuses more than a few
+    # dozen requests in a row: ask once per dataset, not once per file.
+    return Path(kagglehub.dataset_download(dataset))
 
 
 def load(

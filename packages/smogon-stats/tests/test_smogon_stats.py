@@ -148,3 +148,23 @@ def test_files_lists_what_each_year_holds(downloads: list[tuple[str, str]]) -> N
     index = ss.load("files", years=[2014, 2015]).collect()
     assert index.columns == ["table", "month"]
     assert set(index["table"]) == {"usage", "mega"}
+
+
+def test_a_kaggle_notebook_mounts_each_dataset_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = []
+
+    def fake_dataset_download(dataset: str) -> str:
+        asked.append(dataset)
+        return str(tmp_path / dataset.split("/")[1])
+
+    monkeypatch.setenv("KAGGLE_KERNEL_RUN_TYPE", "Batch")
+    monkeypatch.delenv("SMOGON_STATS_DIR", raising=False)
+    monkeypatch.setattr(reader.kagglehub, "dataset_download", fake_dataset_download)
+    reader._mounted.cache_clear()
+    year = reader.COMPLETE.format(year=2024)
+
+    assert reader.download(year, "usage/2024-01.parquet") == (
+        tmp_path / "smogon-usage-stats-complete-2024/usage/2024-01.parquet"
+    )
+    reader.download(year, "usage/2024-02.parquet")
+    assert asked == [year]

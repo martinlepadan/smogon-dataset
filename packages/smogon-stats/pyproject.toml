@@ -1,6 +1,6 @@
 [project]
 name = "smogon-stats"
-version = "0.1.0"
+version = "0.1.1"
 description = "Load the Smogon usage stats datasets published on Kaggle as polars LazyFrames."
 readme = "README.md"
 authors = [
